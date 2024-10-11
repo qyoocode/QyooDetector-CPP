@@ -2,7 +2,9 @@
 #include <string>
 #include <gd.h>
 #include "FeatureDetector.h"
-#include "QyooModel.h"
+
+// Global verbose flag for controlling debug output
+bool verbose = false;
 
 // Function to load a PNG image using gd
 gdImagePtr loadImage(const std::string& fileName) {
@@ -22,13 +24,28 @@ gdImagePtr loadImage(const std::string& fileName) {
     return img;
 }
 
+// Function to handle verbose logging
+void logVerbose(const std::string& message) {
+    if (verbose) {
+        std::cout << "Debug: " << message << std::endl;
+    }
+}
+
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <image_file>" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <image_file> [--v|--verbose]" << std::endl;
         return 1;
     }
 
-    std::string image_file = argv[1];
+    // Check if verbose flag is set
+    for (int i = 1; i < argc; i++) {
+        std::string arg = argv[i];
+        if (arg == "--v" || arg == "--verbose") {
+            verbose = true;  // Enable verbose logging
+        }
+    }
+
+    std::string image_file = argv[1]; // The first argument should be the image file
 
     // Load the image (using gdImagePtr)
     gdImagePtr theImage = loadImage(image_file);
@@ -55,7 +72,7 @@ int main(int argc, char* argv[]) {
     int processSizeX = gdImageSX(theImage); // Width
     int processSizeY = gdImageSY(theImage); // Height
 
-    std::cout << "Loaded image with size: " << processSizeX << "x" << processSizeY << std::endl;
+    logVerbose("Loaded image with size: " + std::to_string(processSizeX) + "x" + std::to_string(processSizeY) );
 
     // Instantiate the FeatureProcessor with the image and its size
     FeatureProcessor* proc = new FeatureProcessor(theImage, processSizeX, processSizeY);
@@ -66,23 +83,11 @@ int main(int argc, char* argv[]) {
         // Process the dots for the qyoo found
         proc->findDots(theImage);
 
-        // Get the first feature's dots processor
-        FeatureDotsProcessor* closeupProc = proc->featureDots[0];
+        logVerbose("Feature processing completed successfully.");
 
-        // Use the QyooModel to verify and get the qyoo code
-        QyooModel* qyooModel = QyooModel::getQyooModel();
-        if (qyooModel->verifyCode(closeupProc->feat->dotBits)) {
-            // Get the decimal string version of the qyoo code
-            std::string foundQyooCode = qyooModel->decimalCodeStr(closeupProc->feat->dotBits);
-
-            std::cout << "Found Qyoo Code: " << foundQyooCode << std::endl;
-        } else {
-            std::cerr << "Found Qyoo outline, but the code is invalid." << std::endl;
-        }
     } else {
         std::cerr << "No Qyoo found in the image." << std::endl;
     }
-
 
     // Clean up
     gdImageDestroy(theImage); // Destroy the image to avoid memory leaks

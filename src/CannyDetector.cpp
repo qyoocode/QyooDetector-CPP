@@ -8,6 +8,7 @@
  */
 
 #include "CannyDetector.h"
+#include "Logger.h"
 
 // Calculate the gradient magnitude and direction at each pixel
 void CannyGradientAndTheta(RawImageGray8 *gaussImg,RawImageGray32 *gradImg,RawImageGray8 *thetaImg)
@@ -75,7 +76,7 @@ void CannyGradientAndTheta(RawImageGray8 *gaussImg,RawImageGray32 *gradImg,RawIm
 void CannyNonMaxSupress(RawImageGray32 *gradImg,RawImageGray8 *thetaImg,int gradThresh)
 {
 	int numZero = 0,numNonZero=0;
-	
+
 	// Work at least one pixel in
 	for (unsigned int iy=1;iy<gradImg->getSizeY()-1;iy++)
 		for (unsigned int ix=1;ix<gradImg->getSizeX()-1;ix++)
@@ -424,114 +425,111 @@ bool closedFeature(RawImageGray32 *featImg,int featId,int cx,int cy,int gridDir)
 	return false;
 }
 
-// #define CANNYDEBUG
-
 // Don't bother with the pixels around the edge
 const int FeatureOffset = 5,InnerOffset=4;
 
 // Feature needs to have more than this number of pixels to matter
 const int FeatureThreshhold = 10;
 
-// Look for features using a min and max threshold
-// We're just going to follow the biggest gradient in the relevant direction for now
-void CannyFindFeatures(RawImageGray32 *gradImg,RawImageGray8 *thetaImg,int minThresh,int maxThresh,std::vector<Feature> &feats,RawImageGray32 *featImg)
+// Look for features using a min and max threshold.
+// This function identifies features in an image by following gradients and edges.
+void CannyFindFeatures(RawImageGray32 *gradImg, RawImageGray8 *thetaImg, int minThresh, int maxThresh, std::vector<Feature> &feats, RawImageGray32 *featImg)
 {
-	int featId = 1;
-	
-	// Work through the image, looking for features to follow
-	for (unsigned int iy=FeatureOffset;iy<gradImg->getSizeY()-FeatureOffset;iy++)
-		for (unsigned int ix=FeatureOffset;ix<gradImg->getSizeX()-FeatureOffset;ix++)
-		{
-			// Haven't been here before and the feature is large enough to be interesting
-			if ((thetaImg->getPixel(ix,iy)&CannyThinFlag) && !featImg->getPixel(ix, iy) && gradImg->getPixel(ix, iy) > maxThresh && !pixelCrowded(featImg,ix,iy))
-			{
-				int featCount = 0;
-				feats.resize(feats.size()+1);
-				Feature &feat = feats[feats.size()-1];
-				int cx = ix, cy = iy;
-				feat.addPointEnd(cx, cy);
+    int featId = 1; // The ID of the feature being processed
 
-				// Follow the feature until we can't anymore
-				int gridDir = -1, startDir = -1;
-				int startCx = cx,startCy = cy;
-				int strayCount = 1;
-				while (!featImg->getPixel(cx,cy) && gradImg->getPixel(cx, cy) > minThresh && 
-					   cx > InnerOffset && cy > InnerOffset && cx < gradImg->getSizeX()-InnerOffset && cy < gradImg->getSizeY()-InnerOffset 
-					   && !closedFeature(featImg,featId,cx,cy,gridDir) )
-				{
-#ifdef CANNYDEBUG
-					gradImg->printCell("Gradient",cx,cy);
-					thetaImg->printCell("Theta",cx,cy);
-					featImg->printCell("Feat",cx,cy);
-#endif
+    // Loop through the image pixels to search for features
+    for (unsigned int iy = FeatureOffset; iy < gradImg->getSizeY() - FeatureOffset; iy++)
+    {
+        for (unsigned int ix = FeatureOffset; ix < gradImg->getSizeX() - FeatureOffset; ix++)
+        {
+            // Check if the pixel qualifies as part of a new feature:
+            // - The gradient value is higher than the max threshold
+            // - The pixel hasn't been visited
+            // - There aren't too many neighboring features
+            if ((thetaImg->getPixel(ix, iy) & CannyThinFlag) && !featImg->getPixel(ix, iy) && gradImg->getPixel(ix, iy) > maxThresh && !pixelCrowded(featImg, ix, iy))
+            {
+                int featCount = 0; // Count of pixels in this feature
+                feats.resize(feats.size() + 1); // Add a new feature to the vector
+                Feature &feat = feats[feats.size() - 1]; // Get reference to the new feature
+                int cx = ix, cy = iy; // Starting point of the feature
+                feat.addPointEnd(cx, cy); // Add the starting point to the feature
 
-					if (startDir == -1)
-						startDir = gridDir;
-					featImg->getPixel(cx, cy) = featId;
-					if (findNext(gradImg,featImg,featId,thetaImg,minThresh,cx,cy,gridDir,strayCount))
-					{
-						feat.addPointEnd(cx, cy);
-						featCount++;
-#ifdef CANNYDEBUG
-						printf("Next dir: %d\n",gridDir);
-#endif
-					} else
-						break;
-#ifdef CANNYDEBUG
-					printf("--------------\n");
-#endif					
-				}
-			
-#ifdef CANNYDEBUG
-				printf("--Switching--\n");
-#endif
-				
-				// Then follow it from the start, but in the other direction.  We hope.
-				cx = startCx;  cy = startCy;  gridDir = (startDir+4) % 8;
-				strayCount = 1;
-				if (findNext(gradImg,featImg,featId,thetaImg,minThresh,cx,cy,gridDir,strayCount))
-				{
-					feat.addPointBegin(cx, cy);
-					
-#ifdef CANNYDEBUG
-					gradImg->printCell("Gradient",cx,cy);
-					thetaImg->printCell("Theta",cx,cy);
-					featImg->printCell("Feat",cx,cy);
-					printf("--------------\n");
-#endif
+                // Debugging output
+                logVerbose("Starting new feature at (" + std::to_string(ix) + ", " + std::to_string(iy) + "), feature ID: " + std::to_string(featId));
 
-					while (!featImg->getPixel(cx,cy) && gradImg->getPixel(cx, cy) > minThresh && 
-						   cx > InnerOffset && cy > InnerOffset && cx < gradImg->getSizeX()-InnerOffset && cy < gradImg->getSizeY()-InnerOffset &&
-						   !closedFeature(featImg,featId,cx,cy,gridDir))
-					{
-#ifdef CANNYDEBUG
-						gradImg->printCell("Gradient",cx,cy);
-						thetaImg->printCell("Theta",cx,cy);
-						featImg->printCell("Feat",cx,cy);
-#endif
+                // Follow the feature in one direction (forward)
+                int gridDir = -1, startDir = -1;
+                int startCx = cx, startCy = cy; // Store starting coordinates
+                int strayCount = 1; // Allowable number of steps outside the edge
 
-						featImg->getPixel(cx, cy) = featId;
-						if (findNext(gradImg,featImg,featId,thetaImg,minThresh,cx,cy,gridDir,strayCount))
-						{
-							feat.addPointBegin(cx,cy);
-							featCount++;
-#ifdef CANNYDEBUG							
-							printf("Next dir: %d\n",gridDir);
-#endif
-						} else
-							break;
-#ifdef CANNYDEBUG
-						printf("--------------\n");
-#endif
-					}
-				}
-					
-				
-				featId++;
-			}
-	}
+                // Follow the feature until it's no longer valid
+                while (!featImg->getPixel(cx, cy) && gradImg->getPixel(cx, cy) > minThresh &&
+                       cx > InnerOffset && cy > InnerOffset && cx < gradImg->getSizeX() - InnerOffset && cy < gradImg->getSizeY() - InnerOffset &&
+                       !closedFeature(featImg, featId, cx, cy, gridDir))
+                {
+                    // Mark the pixel as part of this feature
+                    featImg->getPixel(cx, cy) = featId;
 
-#ifdef CANNYDEBUG
-	printf("Features = %d\n",featId-1);
-#endif
+                    // Try to find the next pixel in the feature
+                    if (findNext(gradImg, featImg, featId, thetaImg, minThresh, cx, cy, gridDir, strayCount))
+                    {
+                        feat.addPointEnd(cx, cy); // Add the new point to the feature
+                        featCount++;
+                    }
+                    else
+                    {
+                        break;
+                    }
+
+                    // Set startDir the first time we find the gridDir
+                    if (startDir == -1)
+                    {
+                        startDir = gridDir;
+                    }
+                }
+
+                // Debugging output
+                logVerbose("First pass completed for feature ID: " + std::to_string(featId) + " with points: " + std::to_string(featCount));
+
+                // Now follow the feature in the other direction (backward)
+                cx = startCx;
+                cy = startCy;
+                gridDir = (startDir + 4) % 8; // Reverse direction
+                strayCount = 1; // Reset stray count
+
+                if (findNext(gradImg, featImg, featId, thetaImg, minThresh, cx, cy, gridDir, strayCount))
+                {
+                    feat.addPointBegin(cx, cy); // Add the starting point in reverse direction
+
+                    while (!featImg->getPixel(cx, cy) && gradImg->getPixel(cx, cy) > minThresh &&
+                           cx > InnerOffset && cy > InnerOffset && cx < gradImg->getSizeX() - InnerOffset && cy < gradImg->getSizeY() - InnerOffset &&
+                           !closedFeature(featImg, featId, cx, cy, gridDir))
+                    {
+                        featImg->getPixel(cx, cy) = featId; // Mark the pixel as part of the feature
+
+                        // Find the next pixel in reverse direction
+                        if (findNext(gradImg, featImg, featId, thetaImg, minThresh, cx, cy, gridDir, strayCount))
+                        {
+                            feat.addPointBegin(cx, cy); // Add the point to the start of the feature
+                            featCount++;
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                }
+
+                // Debugging output
+                logVerbose("Second pass completed for feature ID: " + std::to_string(featId) + " with total points: " + std::to_string(featCount));
+
+                // Increment feature ID for the next feature
+                featId++;
+            }
+        }
+    }
+
+    // Debugging output for the number of features detected
+    logVerbose("Total features detected: " + std::to_string(featId - 1));
 }
+

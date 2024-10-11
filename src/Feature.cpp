@@ -408,7 +408,7 @@ bool Feature::pointModelCheck(QyooMatrix *invTrans,float imgX,float imgY,float n
 	We'll run all the original points through the transform and make sure
      they're close to where we think they ought to be.
     There's a distance each point should be within and a fraction we expect
-     to be within that distnace.
+     to be within that distance.
  */
 bool Feature::modelCheck(float nearDist2,float nearFrac)
 {

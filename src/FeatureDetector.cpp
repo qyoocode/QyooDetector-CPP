@@ -15,6 +15,7 @@
 
 #import "FeatureDetector.h"
 #import "QyooModel.h"
+#include "Logger.h"
 
 // Pixels per dot for detection
 const int PixelsPerDot = 11;
@@ -186,8 +187,9 @@ void FeatureDotsProcessor::findDotsGray() {
         feat->dotBits.push_back(resChar);
 
         // Debugging output for each row
-        std::cout << "Row " << row << ": resChar (binary) = " << currentRowBits << std::endl;
-        std::cout << "Current qyooBits = " << qyooBits << std::endl;
+
+        logVerbose("Row " + std::to_string(row) + ": resChar (binary) = " + currentRowBits);
+        logVerbose("Current qyooBits = " + qyooBits);
     }
     feat->dotBinStr = qyooBits;
 
@@ -195,6 +197,8 @@ void FeatureDotsProcessor::findDotsGray() {
     if (qyooBits.size() > 64) {
         std::cerr << "Error: qyooBits exceeds 64 bits, cannot convert to unsigned long long." << std::endl;
     } else {
+        std::cout << "Binary = " << qyooBits << std::endl;
+
         feat->dotDecStr = std::to_string(std::stoull(qyooBits, nullptr, 2));  // Convert binary string to decimal
         std::cout << "Qyoo value = " << feat->dotDecStr << std::endl;
     }
@@ -246,12 +250,12 @@ void FeatureProcessor::processImage()
 // Find valid Qyoo features
 int FeatureProcessor::findQyoo()
 {
-    std::cout << "Starting Qyoo detection..." << std::endl;
+    logVerbose("Starting Qyoo detection...");
 
     featImg = new RawImageGray32(grayImg->getSizeX(), grayImg->getSizeY());
     CannyFindFeatures(gradImg, thetaImg, 10.0, 60.0, feats, featImg);
 
-    std::cout << "Number of features detected: " << feats.size() << std::endl;
+    logVerbose("Number of features detected: " + std::to_string(feats.size()) );
 
     // Iterate over the detected features and validate them
     numFound = 0;
@@ -275,12 +279,12 @@ int FeatureProcessor::findQyoo()
 
         if (feat.valid)
         {
-            std::cout << "Qyoo shape feature found!" << std::endl;
+            logVerbose("Qyoo shape feature found!");
             numFound++;
         }
     }
 
-    std::cout << "Total Qyoo shapes detected: " << numFound << std::endl;
+    logVerbose("Total Qyoo shapes detected: " + std::to_string(numFound) );
     return numFound;
 }
 
