@@ -17,7 +17,7 @@ This version uses **GD** to handle image input and output (PNG format), and **CM
 
 ### Structure
 
-The project now contains all C++ files in the `src/` folder. All dependencies on UIKit and Objective-C have been removed.
+All project files are located in the src/ folder. This version removes all dependencies on Objective-C or UIKit, making it compatible for C++-based server environments.
 
 ## Installation and Setup
 
@@ -25,105 +25,71 @@ The project now contains all C++ files in the `src/` folder. All dependencies on
 
 This version requires the following libraries:
 - **GD**: For image manipulation (reading, saving, flipping).
-- **CML**: For matrix-based transformations used in image processing.
 
 On a typical Linux system, you can install these libraries via your package manager:
 
 ```bash
+# For GD
 sudo apt-get install libgd-dev
-sudo apt-get install libcml-dev
 ```
 
 ### Building the Project
 
-To compile the project, navigate to the root of the repository and use a **Makefile** or another build system of your choice (e.g., `cmake`).
-
-If you are using a `Makefile`, you can set it up as follows:
-
-```makefile
-CC = g++
-CFLAGS = -Wall -std=c++11
-LDFLAGS = -lgd -lcml
-
-SOURCES = cpp/RawImageGray8.cpp cpp/RawImageGray32.cpp cpp/main.cpp
-OBJECTS = $(SOURCES:.cpp=.o)
-EXECUTABLE = qyoo_detector
-
-all: $(EXECUTABLE)
-
-$(EXECUTABLE): $(OBJECTS)
-	$(CC) $(OBJECTS) $(LDFLAGS) -o $@
-
-clean:
-	rm -f $(OBJECTS) $(EXECUTABLE)
-```
-
-To compile the project:
+To compile the project, navigate to the root of the repository and use the existing `Makefile` or another build system of your choice (e.g., `cmake`).
 
 ```bash
 make
 ```
 
-### Running the Application
+This will compile the project and output the qyoo_detector binary to the bin/ folder.
 
-Once compiled, the application can be run from the command line. Example:
+### Typical Usage
+
+1. Copy a Qyoo image (such as one created with the [QyooGenerate-C](https://github.com/qyoocode/QyooGenerate-C) project) into the `/input` folder.
+2. From the root of the project, run the following commands:
+   - If you haven't already compiled the project, run `make`.
+   - Then, execute the following command:
 
 ```bash
-./qyoo_detector input_image.png output_image.png
+bin/qyoo_detector input/45427039637.png
 ```
 
-This example runs the Qyoo image processing system, loading an input PNG image, performing operations such as grayscale conversion and contrast adjustment, and saving the result as a PNG.
+This should output something like:
 
-## Usage
+```
+Binary = 101010010011101010011001110110010101
+Qyoo value = 45427039637
+```
 
-### Key Classes and Methods
+After running, an image file will be saved to the `/output` folder with the name matching the detected decimal Qyoo value (if a Qyoo was detected). It will draw green circles around detected dots and red Xs where a dot was not detected.
 
-#### `RawImageGray8`
+### Verbose Mode
 
-This class handles 8-bit grayscale image data.
+You can add the `--v` flag to enable verbose logging. This will display debugging information such as feature detection progress and pixel data.
 
-- **Initialization**:
-  ```cpp
-  RawImageGray8 image(100, 100);
-  ```
-  
-- **Rendering from GD Image**:
-  ```cpp
-  image.copyFromGDImage(gdImagePtr image);
-  ```
+```bash
+bin/qyoo_detector input/45427039637.png --v
+```
 
-- **Image Contrast**:
-  Adjusts the contrast of the image:
-  ```cpp
-  image.runContrast();
-  ```
+Verbose mode output example:
 
-- **Saving the Image**:
-  The processed image can be saved using GD library functions:
-  ```cpp
-  gdImagePtr outputImage = image.makeGDImage();
-  gdSaveAsPng(outputImage, "output_image.png");
-  ```
-
-#### `RawImageGray32`
-
-This class handles 32-bit grayscale image data.
-
-- **Initialization**:
-  ```cpp
-  RawImageGray32 image(100, 100);
-  ```
-
-- **Creating GD Image**:
-  ```cpp
-  gdImagePtr outputImage = image.makeImage();
-  ```
+```
+Debug: Loaded image with size: 512x512
+Debug: Starting Qyoo detection...
+Debug: Starting new feature at (246, 127), feature ID: 1
+Debug: First pass completed for feature ID: 1 with points: 798
+Debug: Second pass completed for feature ID: 1 with total points: 798
+...
+Binary = 101010010011101010011001110110010101
+Qyoo value = 45427039637
+Debug: Feature processing completed successfully.
+```
 
 ## Legacy Server-Side Usage
 
-This project, in its original form, was used for server-side image processing on Linux environments. This command-line only version preserves that legacy, removing all dependencies on Objective-C or UIKit and making it fully compatible with C++.
+This project, in its original form, was used for server-side image processing on Linux environments. The command-line only version preserves that legacy, removing all dependencies on Objective-C or UIKit, making it fully compatible with C++.
 
-It is capable of handling tasks like feature detection, contrast adjustment, and image manipulation using the **GD** library for image input/output and the **CML** library for matrix operations.
+It is capable of handling tasks like feature detection, contrast adjustment, and image manipulation using the GD library for image input/output and the CML library for matrix operations.
 
 ## Contributing
 
@@ -131,4 +97,4 @@ We welcome contributions to the QyooDetector project. Please open an issue or su
 
 ## License
 
-This project is licensed under the BSD-3-Clause License. See the `LICENSE` file for details.
+This project is licensed under the BSD-3-Clause License. See the [LICENSE](LICENSE) file for details.

@@ -160,6 +160,22 @@ void FeatureDotsProcessor::findDotsGray() {
     feat->dotDecStr.clear();
     qyooBits = "";  // Start fresh with qyooBits
 
+    // Create an RGB image to draw on
+    gdImagePtr outImg = gdImageCreateTrueColor(grayImg->getSizeX(), grayImg->getSizeY());
+
+    // Copy the grayscale data into the RGB image (mapping grayscale values to RGB)
+    for (int x = 0; x < grayImg->getSizeX(); x++) {
+        for (int y = 0; y < grayImg->getSizeY(); y++) {
+            int grayValue = gdImageGetPixel(grayImg->makeGDImage(), x, y);
+            int rgbColor = gdImageColorAllocate(outImg, grayValue, grayValue, grayValue);
+            gdImageSetPixel(outImg, x, y, rgbColor);
+        }
+    }
+
+    // Allocate colors for drawing
+    int colorRed = gdImageColorAllocate(outImg, 255, 0, 0);
+    int colorGreen = gdImageColorAllocate(outImg, 0, 255, 0);
+
     for (int row = 0; row < numRow; row++) {  // We process from row 0 to numRow
         int resChar = 0;
         int rowPix = PixelsPerDot * (row + 1) + PixelsPerDot / 2;
@@ -169,6 +185,13 @@ void FeatureDotsProcessor::findDotsGray() {
 
             if (isAdot(grayImg, posPix, rowPix, PixelsPerDot, radFilter, avgPixel)) {
                 resChar |= 1 << pos;
+
+                // Draw a green circle around the detected dot
+                gdImageArc(outImg, posPix, rowPix, PixelsPerDot, PixelsPerDot, 0, 360, colorGreen);
+            } else {
+                // If the dot represents a 0, draw a red X
+                gdImageLine(outImg, posPix - 5, rowPix - 5, posPix + 5, rowPix + 5, colorRed);    // Draw slash left
+                gdImageLine(outImg, posPix - 5, rowPix + 5, posPix + 5, rowPix - 5, colorRed);    // Draw slash right
             }
         }
 
@@ -202,6 +225,18 @@ void FeatureDotsProcessor::findDotsGray() {
         feat->dotDecStr = std::to_string(std::stoull(qyooBits, nullptr, 2));  // Convert binary string to decimal
         std::cout << "Qyoo value = " << feat->dotDecStr << std::endl;
     }
+
+    // Save the image with the dots circled and x notated to see where pattern is detected
+    std::string outputFileName = "output/" + feat->dotDecStr + ".png";
+    FILE *outputFile = fopen(outputFileName.c_str(), "wb");
+    if (outputFile) {
+        gdImagePng(outImg, outputFile); // Save PNG image using gdImagePng
+        fclose(outputFile);
+    } else {
+        std::cerr << "Error: Unable to open file for writing PNG image: " << outputFileName << std::endl;
+    }
+
+    gdImageDestroy(outImg);
 
     delete radFilter;
 
