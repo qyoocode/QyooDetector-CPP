@@ -57,7 +57,7 @@ public:
 	int numRows() { return numDotX; }
 	int numPos() { return numDotY; }
 	
-protected:
+//public:
 	/* Construct with the number of internal dots and
 	 any buffer we put around them internally.
 	 By default you've got 6x6 dots and no internal buffer.

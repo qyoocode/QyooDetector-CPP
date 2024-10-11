@@ -347,7 +347,6 @@ void Feature::refineCornerAndFindAngles(int searchDist2)
 			{
 				float scaleX = sqrtf(dist1), scaleY = sqrtf(dist0);
 
-#ifdef QYOO_CMD
 				QyooMatrix sheerMat(1.0, sheer, 0.0,
 						    0.0, 1.0, 0.0,
 						    0.0, 0.0, 1.0);
@@ -365,19 +364,7 @@ void Feature::refineCornerAndFindAngles(int searchDist2)
 				mat = transMat;
 				mat = mat * rotMat;
 				mat = mat * scaleMat;
-                                mat = mat * sheerMat;
-#else
-
-				CGAffineTransform sheerMat = CGAffineTransformMake(1.0,0.0, sheer ,1.0,0.0,0.0);
-
-				CGAffineTransform transMat = CGAffineTransformMakeTranslation(cornX, cornY);
-				CGAffineTransform rotMat = CGAffineTransformMakeRotation(ang0 * M_PI / 180.0);
-				CGAffineTransform scaleMat = CGAffineTransformMakeScale(scaleX, scaleY);
-				mat = transMat;
-				mat = CGAffineTransformConcat(rotMat, mat);
-				mat = CGAffineTransformConcat(scaleMat, mat);
-				mat = CGAffineTransformConcat(sheerMat, mat);
-#endif
+                mat = mat * sheerMat;
 				
 			}
 		}
@@ -428,13 +415,9 @@ bool Feature::modelCheck(float nearDist2,float nearFrac)
 	if (!valid)
 		return false;
 
-#ifdef QYOO_CMD
 	QyooMatrix invMat = mat;
 	invMat.inverse();
-#else
-	CGAffineTransform invMat = CGAffineTransformInvert(mat);
-#endif
-	
+
 	// Work through the original points
 	int numClose = 0;
 	int total = 0;

@@ -5,6 +5,9 @@
  *  Created by Stephen Gifford on 10/20/09.
  *  Copyright 2009 Qyoo. All rights reserved.
  *
+ *  This header file defines the classes and methods for detecting Qyoo features
+ *  and processing dots in an image. It includes the main classes `FeatureProcessor`
+ *  and `FeatureDotsProcessor`, which handle feature detection and dot analysis.
  */
 
 #import "RawImage.h"
@@ -14,93 +17,85 @@
 
 class FeatureProcessor;
 
-// Note: Probably shouldn't be hard coded
+// Number of rows/columns in a Qyoo
 #define QYOOSIZE 6
 
-/* Feature Dots Processor
-	This holds the results of dot processing for a single feature.
+/*
+ * FeatureDotsProcessor
+ * This class handles the detection and processing of dots for a single feature.
+ * It extracts the relevant dot data and stores it in the corresponding feature object.
  */
 class FeatureDotsProcessor
 {
  public:
-#ifdef QYOO_CMD
-  FeatureDotsProcessor(gdImagePtr inImage,FeatureProcessor *featProc,Feature *feat);
-#else
-  FeatureDotsProcessor(UIImage *inImage, FeatureProcessor *featProc,Feature *feat, bool flip, bool vertFlip);
-#endif
+  // Constructor: Initializes the processor with the given image, feature processor, and feature.
+  FeatureDotsProcessor(gdImagePtr inImage, FeatureProcessor *featProc, Feature *feat);
+
+  // Destructor: Cleans up resources used by the processor.
   ~FeatureDotsProcessor();
 
-  // Look for the dots and store the results in the feature
-  // This version uses the gradient image
-  // Note: This version is out of date
-//  void findDotsGradient();
-	
-  // This version uses just the raw grayscale data
+  // Look for dots in the feature and store them in the feature object.
+  // This version uses raw grayscale data for processing.
   void findDotsGray();
 
-
 protected:
-#ifdef QYOO_CMD
-  void init(gdImagePtr,FeatureProcessor *,Feature *);
-#else
-  void init(UIImage *inImage, FeatureProcessor *featProc, Feature *feat, bool flip, bool vertFlip);
-#endif
+  // Initialize the processor with the given image, feature processor, and feature.
+  void init(gdImagePtr inImage, FeatureProcessor *featProc, Feature *feat);
 
  public:
-	RawImageGray8 *grayImg;  // Grayscale version of image
-	RawImageGray8 *gaussImg; // Gauss blurred image
-	RawImageGray32 *gradImg; // Gradient image
-	FeatureProcessor *featProc;
-	Feature *feat;           // The feature we're looking at
-	
-	// JBB: Added the following:
-	std::string qyooBits;
-	int qyooRows [QYOOSIZE];
+  RawImageGray8 *grayImg;   // Grayscale version of the image
+  RawImageGray8 *gaussImg;  // Gaussian blurred image (not used in this version)
+  RawImageGray32 *gradImg;  // Gradient image (not used in this version)
+  FeatureProcessor *featProc;  // Pointer to the feature processor
+  Feature *feat;              // The feature being processed for dot detection
+
+  // Detected Qyoo bits in string format
+  std::string qyooBits;
+
+  // Array of detected Qyoo rows
+  int qyooRows[QYOOSIZE];
 };
 
-/* Processing Pass Data
-	This holds the data for an entire processing pass.
+/*
+ * FeatureProcessor
+ * This class manages the entire image processing pass, from edge detection to feature
+ * analysis and dot detection. It handles the processing of features and identifying
+ * valid Qyoo shapes.
  */
 class FeatureProcessor
 {
  public:
-#ifdef QYOO_CMD
-  FeatureProcessor(gdImagePtr inImage,int processSizeX, int processSizeY);
-#else
-  FeatureProcessor(UIImage *inImage, int processSizeX, int processSizeY, bool flip, bool vertFlip);
-#endif
+  // Constructor: Initializes the processor with the given image and image size.
+  FeatureProcessor(gdImagePtr inImage, int processSizeX, int processSizeY);
+
+  // Destructor: Cleans up resources used by the processor.
   ~FeatureProcessor();
 
-  // Do the image processing up to finding thin edges
+  // Processes the image up to the point of finding thin edges and gradients.
   void processImage();
-  // Redo the gradient image in a larger size (for debugging)
-#ifdef QYOO_CMD
-  void redoGradient(gdImagePtr inImage, int processSizeX, int processSizeY);
-#else
-  void redoGradient(UIImage *inImage, int processSizeX, int processSizeY, bool flip, bool vertFlip);
-#endif
 
-  // Switch to feature based processing
-  // Returns the number of Qyoo's found
+  // Reprocess the image using a larger gradient (for debugging purposes).
+  void redoGradient(gdImagePtr inImage, int processSizeX, int processSizeY);
+
+  // Detect Qyoo features in the processed image.
+  // Returns the number of valid Qyoo features found.
   int findQyoo();
-  // For the valid qyoo, find their dots
-  // We pass in the size of the image the features were found in
-#ifdef QYOO_CMD
+
+  // Find and process the dots in the valid Qyoo features.
   void findDots(gdImagePtr inImage);
-#else
-  void findDots(UIImage *inImage, bool flip, bool vertFlip);
-#endif
 
  public:
-	ConvolutionFilterInt *gaussFilter;  // The filter we'll use to reduce noise
-	RawImageGray8 *grayImg;          // First thing we do is downsample and convert to grayscale
-	RawImageGray8 *gaussImg;         // The gauss blurred image
-	RawImageGray32 *gradImg;         // Gradient image
-	RawImageGray8 *thetaImg;         // Angles and thin edges
-	RawImageGray32 *featImg;         // Used to mark off features as we follow them
-	std::vector<Feature> feats;
-	int numFound;                    // If we've done it, the number of Qyoo found
+  ConvolutionFilterInt *gaussFilter;  // Gaussian filter to reduce noise in the image
+  RawImageGray8 *grayImg;             // Grayscale version of the input image
+  RawImageGray8 *gaussImg;            // Gaussian blurred image
+  RawImageGray32 *gradImg;            // Gradient image (calculated during edge detection)
+  RawImageGray8 *thetaImg;            // Angle of the edges in the image
+  RawImageGray32 *featImg;            // Feature map used to mark off detected features
 
-	std::vector<FeatureDotsProcessor *> featureDots;
-//	NSMutableArray *featureDots;     // Data used to tease out the dots in individual qyoos
+  std::vector<Feature> feats;         // List of detected features
+  int numFound;                       // Number of valid Qyoo features found
+
+  // List of processors for the detected dots in valid Qyoo features
+  std::vector<FeatureDotsProcessor *> featureDots;
 };
+

@@ -17,7 +17,7 @@ This version uses **GD** to handle image input and output (PNG format), and **CM
 
 ### Structure
 
-The project now contains all C++ files in the `cpp/` folder. All dependencies on UIKit and Objective-C have been removed.
+The project now contains all C++ files in the `src/` folder. All dependencies on UIKit and Objective-C have been removed.
 
 ## Installation and Setup
 

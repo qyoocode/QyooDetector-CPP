@@ -85,8 +85,9 @@ public:
 	// The raw bits for the dots, if they've been read
 	std::vector<unsigned char> dotBits;
 	
-	// If the dot reader has been run, this is the resulting string
-	std::string dotStr;
+	// If the dot reader has been run, these are the resulting stringa
+	std::string dotBinStr;
+	std::string dotDecStr;
 
 	std::list<Point> origPoints;  // After decimation, keep the original points around
 	std::list<Point> points;
@@ -99,18 +100,4 @@ protected:
 	bool pointModelCheck(QyooMatrix *invTrans,float x,float y,float nearDist2);
     
 };
-
-#ifndef QYOO_CMD
-
-// A whole group of features
-// Mostly just an Objective C wrapper for display
-@interface FeatureSet : NSObject
-{
-@public
-	int sizeX,sizeY; // Overall size of image
-	std::vector<Feature> feats;
-}
-@end
-
-#endif
 

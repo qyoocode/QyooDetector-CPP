@@ -1,67 +1,92 @@
-#include <gd.h>
 #include <iostream>
-#include <cstdlib>
-#include "RawImage.h"
+#include <string>
+#include <gd.h>
+#include "FeatureDetector.h"
+#include "QyooModel.h"
+
+// Function to load a PNG image using gd
+gdImagePtr loadImage(const std::string& fileName) {
+    FILE *infile = fopen(fileName.c_str(), "rb");
+    if (!infile) {
+        std::cerr << "Error: Unable to open image file: " << fileName << std::endl;
+        return nullptr;
+    }
+
+    gdImagePtr img = gdImageCreateFromPng(infile);
+    fclose(infile);
+
+    if (!img) {
+        std::cerr << "Error: Unable to load image: " << fileName << std::endl;
+    }
+
+    return img;
+}
 
 int main(int argc, char* argv[]) {
-    // Ensure the correct number of arguments are provided
-    if (argc != 3) {
-        std::cerr << "Usage: " << argv[0] << " <input_image.png> <output_image.png>" << std::endl;
-        return EXIT_FAILURE;
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <image_file>" << std::endl;
+        return 1;
     }
 
-    // Input and output file paths
-    const char* inputFilePath = argv[1];
-    const char* outputFilePath = argv[2];
+    std::string image_file = argv[1];
 
-    // Open the input PNG image using GD library
-    FILE* inputFile = fopen(inputFilePath, "rb");
-    if (!inputFile) {
-        std::cerr << "Error: Could not open input file " << inputFilePath << std::endl;
-        return EXIT_FAILURE;
+    // Load the image (using gdImagePtr)
+    gdImagePtr theImage = loadImage(image_file);
+    if (!theImage) {
+        return 1; // Exit if image loading fails
     }
 
-    // Load the image
-    gdImagePtr inputImage = gdImageCreateFromPng(inputFile);
-    fclose(inputFile);
+    // Convert palette-based image to true color if necessary
+    if (!gdImageTrueColor(theImage)) {
+        gdImagePtr trueColorImg = gdImageCreateTrueColor(gdImageSX(theImage), gdImageSY(theImage));
+        if (!trueColorImg) {
+            std::cerr << "Error: Unable to create true color image." << std::endl;
+            gdImageDestroy(theImage);
+            return 1;
+        }
 
-    if (!inputImage) {
-        std::cerr << "Error: Could not load image from " << inputFilePath << std::endl;
-        return EXIT_FAILURE;
+        // Copy the palette-based image into the true color image
+        gdImageCopy(trueColorImg, theImage, 0, 0, 0, 0, gdImageSX(theImage), gdImageSY(theImage));
+        gdImageDestroy(theImage);  // Clean up the original palette-based image
+        theImage = trueColorImg;   // Replace with the true-color image
     }
 
-    // Get the size of the image
-    int width = gdImageSX(inputImage);
-    int height = gdImageSY(inputImage);
+    // Get image size from the loaded image
+    int processSizeX = gdImageSX(theImage); // Width
+    int processSizeY = gdImageSY(theImage); // Height
 
-    // Create a RawImageGray8 object with the image dimensions
-    RawImageGray8 rawImage(width, height);
+    std::cout << "Loaded image with size: " << processSizeX << "x" << processSizeY << std::endl;
 
-    // Copy the GD image into the RawImageGray8 object
-    rawImage.copyFromGDImage(inputImage);
+    // Instantiate the FeatureProcessor with the image and its size
+    FeatureProcessor* proc = new FeatureProcessor(theImage, processSizeX, processSizeY);
+    proc->processImage();
 
-    // Apply contrast adjustment
-    rawImage.runContrast();
+    // Try to find the qyoo in the image
+    if (proc->findQyoo() > 0) {
+        // Process the dots for the qyoo found
+        proc->findDots(theImage);
 
-    // Convert the processed image back into a GD image
-    gdImagePtr outputImage = rawImage.makeGDImage();
+        // Get the first feature's dots processor
+        FeatureDotsProcessor* closeupProc = proc->featureDots[0];
 
-    // Save the processed image to the output file
-    FILE* outputFile = fopen(outputFilePath, "wb");
-    if (!outputFile) {
-        std::cerr << "Error: Could not open output file " << outputFilePath << std::endl;
-        gdImageDestroy(inputImage);
-        gdImageDestroy(outputImage);
-        return EXIT_FAILURE;
+        // Use the QyooModel to verify and get the qyoo code
+        QyooModel* qyooModel = QyooModel::getQyooModel();
+        if (qyooModel->verifyCode(closeupProc->feat->dotBits)) {
+            // Get the decimal string version of the qyoo code
+            std::string foundQyooCode = qyooModel->decimalCodeStr(closeupProc->feat->dotBits);
+
+            std::cout << "Found Qyoo Code: " << foundQyooCode << std::endl;
+        } else {
+            std::cerr << "Found Qyoo outline, but the code is invalid." << std::endl;
+        }
+    } else {
+        std::cerr << "No Qyoo found in the image." << std::endl;
     }
 
-    gdImagePng(outputImage, outputFile);
-    fclose(outputFile);
 
     // Clean up
-    gdImageDestroy(inputImage);
-    gdImageDestroy(outputImage);
+    gdImageDestroy(theImage); // Destroy the image to avoid memory leaks
+    delete proc;
 
-    std::cout << "Processed image saved to " << outputFilePath << std::endl;
-    return EXIT_SUCCESS;
+    return 0;
 }

@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <bitset>
 #include "QyooModel.h"
 
 // Instantiate the singleton
@@ -42,8 +43,6 @@ QyooModel::QyooModel(int numDotX,int numDotY,float buffer)
 	dotRad = (ur.x-ll.x)/(2.0*numDots);
 	
 	addLegacy(00,30,30,30,30,00); // qyoo logo
-	
-	// JBB: Fill in any other legacy qyoos
 }
 
 // Add a legacy code to our list
@@ -140,26 +139,28 @@ std::string QyooModel::decimalCodeStr(const std::vector<unsigned char> &bitVec)
 	return theStr;
 }
 
-// Verify the given code is valid
 bool QyooModel::verifyCode(const std::vector<unsigned char> &bitVec)
 {
-	// Check for a pattern on the ends
-	if (!(bitVec[5] & 0x20) && !(bitVec[5] & 0x1) &&
-		 (bitVec[4] & 0x20) && !(bitVec[4] & 0x1) &&
-		!(bitVec[3] & 0x20) &&  (bitVec[3] & 0x1) &&
-		 (bitVec[2] & 0x20) && !(bitVec[2] & 0x1) &&
-		!(bitVec[1] & 0x20) &&  (bitVec[1] & 0x1) &&
-		!(bitVec[0] & 0x20) && !(bitVec[0] & 0x1))
-		return true;
-	
-	// It might be one of the hardwired codes
-	unsigned long long decCode = decimalCode(bitVec);
-    
-    //NSLog (@"The detected code (decimal): %llu", decCode);
-    
-	if (legacyQyoos.find(decCode) != legacyQyoos.end())
-		return true;
-	
-	// Yeah, not so much
-	return false;
+/*
+    // Convert the bit vector to a decimal string
+    std::string decStr = decimalCodeStr(bitVec);
+
+    // Display the detected decimal string code
+    std::cout << "The detected code (decimal string): " << decStr << std::endl;
+
+    // Display the detected bit pattern without reversing bits
+    std::cout << "The detected code (bit pattern): ";
+    for (unsigned char byte : bitVec) {
+        std::bitset<8> bits(byte);  // No bit reversal
+        std::cout << bits << " ";
+    }
+    std::cout << std::endl;
+
+    // Check if it's a legacy code
+    if (legacyQyoos.find(std::stoull(decStr)) != legacyQyoos.end())
+        return true;
+    */
+
+    // If not found, return false
+    return false;
 }
