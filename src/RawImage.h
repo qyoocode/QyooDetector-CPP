@@ -125,6 +125,8 @@ public:
      */
     void printCell(const char *what, int cx, int cy);
 
+    RawImageGray8* rotateImage(float angle);
+
 protected:
     bool isMine;      ///< Indicates if the RawImage class owns the image memory.
     bool useFree;     ///< Indicates whether to use `free` or `delete[]` for memory deallocation.
@@ -196,6 +198,10 @@ public:
      * @param cy The y-coordinate of the center cell.
      */
     void printCell(const char *what, int cx, int cy);
+
+    RawImageGray32* rotateImage(float angle);
+    gdImagePtr makeGDImage();
+    void copyFromGDImage(gdImagePtr inImage);
 
 protected:
     int sizeX, sizeY; ///< Dimensions of the image.

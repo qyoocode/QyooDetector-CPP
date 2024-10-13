@@ -76,7 +76,6 @@ int main(int argc, char* argv[]) {
 
     // Instantiate the FeatureProcessor with the image and its size
     FeatureProcessor* proc = new FeatureProcessor(theImage, processSizeX, processSizeY);
-    proc->processImage();
 
     // Try to find the qyoo in the image
     if (proc->findQyoo() > 0) {

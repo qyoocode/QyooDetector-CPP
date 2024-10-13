@@ -8,6 +8,7 @@
  */
 
 #include "RawImage.h"
+#include "Logger.h"
 
 /**
  * Save a GD image as a PNG file.
@@ -195,6 +196,42 @@ void RawImageGray8::printCell(const char *what, int cx, int cy)
 }
 
 /**
+ * Rotate the RawImageGray8 by a specified angle using GD.
+ * @param angle The angle in degrees to rotate the image.
+ * @return A new RawImageGray8 image pointer representing the rotated image.
+ */
+RawImageGray8* RawImageGray8::rotateImage(float angle)
+{
+    // Create a GD image from RawImageGray8 data
+    gdImagePtr gdImage = this->makeGDImage();
+    if (!gdImage) {
+        logVerbose("Failed to create GD image for rotation.");
+        return nullptr;  // Handle failure
+    }
+
+    // Rotate the image using GD's rotate function with nearest-neighbor interpolation
+    gdImagePtr rotatedImage = gdImageRotateInterpolated(gdImage, angle, 0);  // 0 for black background color
+    if (!rotatedImage) {
+        gdImageDestroy(gdImage);  // Clean up the original GD image
+        logVerbose("Failed to rotate GD image.");
+        return nullptr;  // Handle failure
+    }
+
+    // Create a new RawImageGray8 to hold the rotated result
+    RawImageGray8* rotatedRawImg = new RawImageGray8(rotatedImage->sx, rotatedImage->sy);
+
+    // Copy the rotated GD image data back to the new RawImageGray8 object
+    rotatedRawImg->copyFromGDImage(rotatedImage);
+
+    // Clean up the GD images
+    gdImageDestroy(gdImage);      // Clean up the original GD image
+    gdImageDestroy(rotatedImage); // Clean up the rotated GD image
+
+    return rotatedRawImg;
+}
+
+
+/**
  * Constructor for creating a grayscale image of 32-bit depth.
  * @param sizeX The width of the image.
  * @param sizeY The height of the image.
@@ -265,5 +302,110 @@ void RawImageGray32::printCell(const char *what, int cx, int cy)
             printf("%4d", getPixel(ix, iy));
         }
         printf("\n");
+    }
+}
+
+
+/**
+ * Rotate the RawImageGray8 by a specified angle using GD.
+ * @param angle The angle in degrees to rotate the image.
+ * @return A new RawImageGray8 image pointer representing the rotated image.
+ */
+ RawImageGray32* RawImageGray32::rotateImage(float angle)
+ {
+     // Create a GD image from RawImageGray32 data
+     gdImagePtr gdImage = this->makeGDImage();
+     if (!gdImage) {
+         logVerbose("Failed to create GD image for rotation.");
+         return nullptr;  // Handle failure
+     }
+
+     // Rotate the image using GD's rotate function with nearest-neighbor interpolation
+     gdImagePtr rotatedImage = gdImageRotateInterpolated(gdImage, angle, 0);  // 0 for black background color
+     if (!rotatedImage) {
+         gdImageDestroy(gdImage);  // Clean up the original GD image
+         gdImage = nullptr;        // Avoid double free
+         logVerbose("Failed to rotate GD image.");
+         return nullptr;  // Handle failure
+     }
+
+     // Create a new RawImageGray32 to hold the rotated result
+     RawImageGray32* rotatedRawImg = new RawImageGray32(rotatedImage->sx, rotatedImage->sy);
+
+     // Copy the rotated GD image data back to the new RawImageGray32 object
+     rotatedRawImg->copyFromGDImage(rotatedImage);
+
+     // Clean up the GD images
+     if (gdImage) {
+         gdImageDestroy(gdImage);  // Clean up the original GD image
+         gdImage = nullptr;        // Set to nullptr to avoid double free
+     }
+
+     if (rotatedImage) {
+         gdImageDestroy(rotatedImage); // Clean up the rotated GD image
+         rotatedImage = nullptr;       // Set to nullptr to avoid double free
+     }
+
+     return rotatedRawImg;
+ }
+
+
+/**
+ * Create a GD image from the internal 32-bit grayscale image data.
+ * @return A GD image pointer representing the 32-bit grayscale image.
+ */
+gdImagePtr RawImageGray32::makeGDImage()
+{
+    gdImagePtr newImage = gdImageCreate(sizeX, sizeY);
+    for (unsigned int ic = 0; ic < 255; ic++)
+        gdImageColorAllocate(newImage, ic, ic, ic);
+
+    // Scale the 32-bit image data to 8-bit for GD
+    int minPix = INT_MAX, maxPix = INT_MIN;
+    for (unsigned int i = 0; i < sizeX * sizeY; i++)
+    {
+        if (img[i] < minPix) minPix = img[i];
+        if (img[i] > maxPix) maxPix = img[i];
+    }
+
+    for (unsigned int ix = 0; ix < sizeX; ix++)
+    {
+        for (unsigned int iy = 0; iy < sizeY; iy++)
+        {
+            int pix = img[ix + iy * sizeX];
+            int scalePix = 255 * (pix - minPix) / (maxPix - minPix);
+            gdImageSetPixel(newImage, ix, iy, scalePix);
+        }
+    }
+
+    return newImage;
+}
+
+/**
+ * Copy pixel data from a GD image into the internal 32-bit grayscale image.
+ * @param inImage The input GD image pointer.
+ */
+void RawImageGray32::copyFromGDImage(gdImagePtr inImage)
+{
+    // Resize if necessary
+    if (sizeX != gdImageSX(inImage) || sizeY != gdImageSY(inImage))
+    {
+        delete[] img;
+        sizeX = gdImageSX(inImage);
+        sizeY = gdImageSY(inImage);
+        img = new int[sizeX * sizeY];
+    }
+
+    // Extract pixel data from the GD image and store it in 32-bit format
+    for (unsigned int ix = 0; ix < sizeX; ix++)
+    {
+        for (unsigned int iy = 0; iy < sizeY; iy++)
+        {
+            int pixVal = gdImageGetPixel(inImage, ix, iy);
+            int red = gdImageRed(inImage, pixVal);
+            int green = gdImageGreen(inImage, pixVal);
+            int blue = gdImageBlue(inImage, pixVal);
+            img[ix + iy * sizeX] = (red + green + blue) / 3;  // Convert to grayscale
+        }
     }
 }
