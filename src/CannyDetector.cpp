@@ -455,7 +455,7 @@ void CannyFindFeatures(RawImageGray32 *gradImg, RawImageGray8 *thetaImg, int min
                 feat.addPointEnd(cx, cy); // Add the starting point to the feature
 
                 // Debugging output
-                logVerbose("Starting new feature at (" + std::to_string(ix) + ", " + std::to_string(iy) + "), feature ID: " + std::to_string(featId));
+                //logVerbose("Starting new feature at (" + std::to_string(ix) + ", " + std::to_string(iy) + "), feature ID: " + std::to_string(featId));
 
                 // Follow the feature in one direction (forward)
                 int gridDir = -1, startDir = -1;
@@ -489,7 +489,7 @@ void CannyFindFeatures(RawImageGray32 *gradImg, RawImageGray8 *thetaImg, int min
                 }
 
                 // Debugging output
-                logVerbose("First pass completed for feature ID: " + std::to_string(featId) + " with points: " + std::to_string(featCount));
+                //logVerbose("First pass completed for feature ID: " + std::to_string(featId) + " with points: " + std::to_string(featCount));
 
                 // Now follow the feature in the other direction (backward)
                 cx = startCx;
@@ -521,7 +521,7 @@ void CannyFindFeatures(RawImageGray32 *gradImg, RawImageGray8 *thetaImg, int min
                 }
 
                 // Debugging output
-                logVerbose("Second pass completed for feature ID: " + std::to_string(featId) + " with total points: " + std::to_string(featCount));
+                //logVerbose("Second pass completed for feature ID: " + std::to_string(featId) + " with total points: " + std::to_string(featCount));
 
                 // Increment feature ID for the next feature
                 featId++;

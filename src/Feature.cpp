@@ -11,6 +11,7 @@
 
 #import "Feature.h"
 #import "CannyDetector.h"
+#include "Logger.h"
 
 // Tack a point on the end
 void Feature::addPointEnd(int cx,int cy)
@@ -29,26 +30,17 @@ void Feature::addPointBegin(int cx,int cy)
 void Feature::calcClosed(int dist2)
 {
 	Point &p0 = points.front(),&p1 = points.back();
-	
+
 	int dx = p0.x - p1.x;
 	int dy = p0.y - p1.y;
-	
+
 	closed =  (dx*dx + dy*dy) <= dist2;
 }
-
-// #define DECIMATEDEBUG 1
 
 // Decimate points not "needed" to represent the overall shape
 // Note: This has problems depending on where the start and end are
 void Feature::decimate(float tol2)
 {
-#ifdef DECIMATEDEBUG
-	printf("-----\n");
-	for (std::list<Point>::iterator pt = points.begin();pt!=points.end();++pt)
-		printf("Point = (%d,%d)\n",pt->x,pt->y);
-	printf("-----\n");
-#endif
-
 	std::list<Point> newPoints = points;
 
 	// Keep going while we're pulling points out
@@ -62,7 +54,7 @@ void Feature::decimate(float tol2)
 		std::vector<Point> checkPts;  // The points we have to check against at each iteration
 		while (newPoints.size() > 3 && !done)
 		{
-			
+
 			// We need at least two more points
 			// Pretend this is circular
 			std::list<Point>::iterator cpt = pt0; cpt++;
@@ -70,41 +62,27 @@ void Feature::decimate(float tol2)
 			std::list<Point>::iterator pt2 = cpt; pt2++;
 			checkPts.push_back(*cpt);
 			if (pt2 == newPoints.end())  pt2 = newPoints.begin();
-			
-#ifdef DECIMATEDEBUG		
-			printf("size = %d\n",newPoints.size());
-#endif
-			
+
 			// We're back at the beginning, stop after this
 			if (cpt == newPoints.begin())
 				done = true;
-			
+
 			// Now we need to check the proposed line against every point we've eliminated
 			bool passed = true;
-#ifdef DECIMATEDEBUG
-			printf("pt0 = (%d,%d), [%d points], pt1 = (%d,%d)\n  ",pt0->x,pt0->y,checkPts.size(),pt2->x,pt2->y);
-#endif
 			for (unsigned int ii=0;ii<checkPts.size();ii++)
 			{
 				Point &ipt = checkPts[ii];
-				
+
 				SimpleLineSegment seg(SimplePoint2D(pt0->x,pt0->y),SimplePoint2D(pt2->x,pt2->y));
 				float dist = seg.dist2ToPtAsLine(SimplePoint2D(ipt.x,ipt.y));
-				
-#ifdef DECIMATEDEBUG
-				printf("%f ",dist);
-#endif
-				
+
 				if (dist > tol2)
 				{
 					passed = false;
 					break;
 				}
 			}
-#ifdef DECIMATEDEBUG
-			printf("\n");
-#endif
-			
+
 			// If the new line is close enough, delete this cpt and move on
 			if (passed)
 			{
@@ -112,14 +90,11 @@ void Feature::decimate(float tol2)
 				decimate = true;
 			} else {
 				pt0++;
-				checkPts.clear();	
+				checkPts.clear();
 			}
 		}
 	} while (decimate);
-		
-#ifdef DECIMATEDEBUG
-	printf("[%d new points]\n",newPoints.size());
-#endif
+
 	origPoints = points;
 	points = newPoints;
 }
@@ -130,14 +105,14 @@ void Feature::decimate(float tol2)
 void Feature::findCorner()
 {
 	float centerX=0.0,centerY=0.0;
-	
+
 	for (std::list<Point>::iterator pt = points.begin();pt != points.end(); ++pt)
 	{
 		centerX += pt->x;  centerY += pt->y;
 	}
 	centerX /= points.size();
 	centerY /= points.size();
-	
+
 	// Now look for the furthest point
 	float maxDist2 = -1.0;
 	cornerValid = false;
@@ -152,12 +127,13 @@ void Feature::findCorner()
 			maxDist2 = dist;
 		}
 	}
+	logVerbose("Corner found at (" + std::to_string(cornX) + ", " + std::to_string(cornY) + "), distance: " + std::to_string(maxDist2));
 }
 
 // We don't want things too long and skinny
 const float MinAspectRatio = 0.5;
 // Or too small
-const float MinAreaFraction = 0.03,MaxAreaFraction = 1.0; 
+const float MinAreaFraction = 0.03,MaxAreaFraction = 1.0;
 
 // Calculate the overall size and check against the size of
 // the image as well as the overall aspect ratio of the feature
@@ -173,9 +149,9 @@ void Feature::checkSizeAndPosition(int imgSizeX,int imgSizeY)
 		if (pt->x > maxX)  maxX = pt->x;
 		if (pt->y > maxY)  maxY = pt->y;
 	}
-	
+
 	int sizeX = maxX - minX, sizeY = maxY - minY;
-	
+
 	// Only put up with an aspect ratio of 1:2 or so
 	if ((sizeX == 0 || sizeY == 0) ||
 		(sizeX > sizeY && (float)sizeX / (float)sizeY < MinAspectRatio) ||
@@ -184,7 +160,7 @@ void Feature::checkSizeAndPosition(int imgSizeX,int imgSizeY)
 		valid = false;
 		return;
 	}
-	
+
 	// Now for an overall area check
 	float totalArea = imgSizeX*imgSizeY;
 	float featArea = sizeX*sizeY;
@@ -199,14 +175,14 @@ class LongEdge
 public:
 	LongEdge() { }
 	LongEdge(int isx,int isy,int iex,int iey) { sx = isx; sy = isy; ex = iex; ey = iey; }
-	
+
 	// Calculate (or used cached) length
 	float len2() const
 	{
 		float dx = ex-sx, dy = ey-sy;
 		return (dx*dx + dy*dy);
 	}
-	
+
 	// Return in angle from 0->360
 	// Note: Could be simpler
 	float calcAngle() const
@@ -218,8 +194,8 @@ public:
 };
 
 // Comparison for long edges
-static bool compFunction (const LongEdge &a,const LongEdge &b) 
-{ 
+static bool compFunction (const LongEdge &a,const LongEdge &b)
+{
 	return a.len2() > b.len2();
 }
 
@@ -227,7 +203,7 @@ static bool compFunction (const LongEdge &a,const LongEdge &b)
 bool Feature::findFarPoint(float p0x,float p0y,float p1x,float p1y,Point &far,float &farDist2)
 {
 	float maxDist2 = -1.0;
-	
+
 	// We just care about the points here
 	for (std::list<Point>::iterator pt = origPoints.begin(); pt != origPoints.end(); ++pt)
 	{
@@ -240,7 +216,7 @@ bool Feature::findFarPoint(float p0x,float p0y,float p1x,float p1y,Point &far,fl
 			far.y = pt->y;
 		}
 	}
-	
+
 	farDist2 = maxDist2;
 	return maxDist2 > 0.0;
 }
@@ -252,7 +228,7 @@ bool Feature::findFarPoint(float p0x,float p0y,float p1x,float p1y,Point &far,fl
 void Feature::refineCornerAndFindAngles(int searchDist2)
 {
 	std::vector<LongEdge> edges;
-	
+
 	bool done = false;
 	std::list<Point>::iterator p0 = points.begin();
 	std::list<Point>::iterator p1 = p0;  p1++;
@@ -272,7 +248,7 @@ void Feature::refineCornerAndFindAngles(int searchDist2)
 				LongEdge edge(p1->x,p1->y,p0->x,p0->y);
 				edges.push_back(edge);
 			}
-		
+
 		p0 = p1;  p1++;
 		if (closed)
 		{
@@ -283,14 +259,14 @@ void Feature::refineCornerAndFindAngles(int searchDist2)
 		else
 			done = (p1 == points.end());
 	}
-	
+
 	// Start out invalid and see where we go
 	edgesValid = false;
 	if (edges.size() >= 2)
 	{
 		std::sort(edges.begin(),edges.end(),compFunction);
 		LongEdge &edge0 = edges[0], &edge1 = edges[1];
-		
+
 		// Take a look at the angles and decide if they're too far apart
 		ang0 = edge0.calcAngle();
 		ang1 = edge1.calcAngle();
@@ -302,7 +278,9 @@ void Feature::refineCornerAndFindAngles(int searchDist2)
 			edgesValid = true;
 			e0.x = edge0.ex;  e0.y = edge0.ey;
 			e1.x = edge1.ex;  e1.y = edge1.ey;
-			
+
+			logVerbose("Angles found: ang0 = " + std::to_string(ang0) + ", ang1 = " + std::to_string(ang1) + ", difference = " + std::to_string(angDiff));
+
 			// And calculate a shiny new corner point
 			// Note: Reassigning variable names because I'm lazy
 			float x1 = edge0.sx, y1 = edge0.sy;
@@ -312,7 +290,9 @@ void Feature::refineCornerAndFindAngles(int searchDist2)
 			float denom = ((x1-x2)*(y3-y4) - (y1-y2)*(x3-x4));
 			cornX = ((x1*y2 - y1*x2)*(x3-x4) - (x1-x2)*(x3*y4 - y3*x4))/denom;
 			cornY = ((x1*y2 - y1*x2)*(y3-y4) - (y1-y2)*(x3*y4 - y3*x4))/denom;
-			
+
+			logVerbose("New corner position: (" + std::to_string(cornX) + ", " + std::to_string(cornY) + ")");
+
 			// Calculate the Z portion of a cross product and switch the edges
 			//  if it's not pointing up
 			if ((e0.x-cornX) * (e1.y-cornY) - (e0.y-cornY) * (e1.x-cornX) < 0)
@@ -322,7 +302,7 @@ void Feature::refineCornerAndFindAngles(int searchDist2)
 				float tmpAng = ang1;
 				ang1 = ang0;  ang0 = tmpAng;
 			}
-			
+
 			// Calculate a sheer value to account for the skew.  Sort of.
 			// We want a unit vector 90 degrees ahead of e0
 			float modelAng = ang0+90.0;
@@ -336,12 +316,12 @@ void Feature::refineCornerAndFindAngles(int searchDist2)
 			float angComp = ang1-ang0;  if (angComp < 0)  angComp += 360;
 			if (angComp > 90.0)
 				sheer *= -1;
-			
+
 			// Now look for the outer extents of shape
 			if (findFarPoint(cornX,cornY,e0.x,e0.y,far0,dist0) &&
 				findFarPoint(cornX,cornY,e1.x,e1.y,far1,dist1))
-				farEdgesValid = true;		
-			
+				farEdgesValid = true;
+
 			// Build up a matrix if we found everything we want
 			if (farEdgesValid)
 			{
@@ -365,9 +345,13 @@ void Feature::refineCornerAndFindAngles(int searchDist2)
 				mat = mat * rotMat;
 				mat = mat * scaleMat;
                 mat = mat * sheerMat;
-				
+
 			}
 		}
+	}
+	else
+	{
+		logVerbose("Not enough valid edges found for angle comparison.");
 	}
 
 	valid = edgesValid && farEdgesValid;
@@ -378,20 +362,20 @@ bool Feature::pointModelCheck(QyooMatrix *invTrans,float imgX,float imgY,float n
 {
         cml::vector3d pt = (*invTrans) * cml::vector3d(imgX,imgY,1.0);
   	SimplePoint2D pt2d(pt[0],pt[1]);
-	
+
 	// Is it close to the bottom line
 	SimpleLineSegment bline(SimplePoint2D(0.0,0.0),SimplePoint2D(0.5,0.0));
 	if (bline.dist2ToPt(pt2d) < nearDist2)
 		return true;
-	
+
 	// How about the left line
 	SimpleLineSegment lline(SimplePoint2D(0.0,0.0),SimplePoint2D(0.0,0.5));
 	if (lline.dist2ToPt(pt2d) < nearDist2)
 		return true;
-	
+
 	// Now check a circle centered at (0.5,0.5)
 	pt2d.x -= 0.5;  pt2d.y -= 0.5;
-	
+
 	// Not if it's in sector III
 	if (pt2d.x > 0 || pt2d.y > 0)
 	{
@@ -400,7 +384,7 @@ bool Feature::pointModelCheck(QyooMatrix *invTrans,float imgX,float imgY,float n
 		float dist = fabs(ptRad-0.5);
 		return (dist*dist < nearDist2);
 	}
-			
+
 	return false;
 }
 
@@ -427,9 +411,11 @@ bool Feature::modelCheck(float nearDist2,float nearFrac)
 			numClose++;
 		total++;
 	}
-	
+
 	modelChecked = ((float)numClose/ (float) total > nearFrac);
-	
+
+	logVerbose("Model check: " + std::to_string(numClose) + " out of " + std::to_string(total) + " points close enough.");
+
 	if (!modelChecked)
 		valid = false;
 	return modelChecked;
