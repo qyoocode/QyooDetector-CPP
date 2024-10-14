@@ -72,25 +72,54 @@ int main(int argc, char* argv[]) {
     int processSizeX = gdImageSX(theImage); // Width
     int processSizeY = gdImageSY(theImage); // Height
 
-    logVerbose("Loaded image with size: " + std::to_string(processSizeX) + "x" + std::to_string(processSizeY) );
+    logVerbose("Loaded image with size: " + std::to_string(processSizeX) + "x" + std::to_string(processSizeY));
 
-    // Instantiate the FeatureProcessor with the image and its size
-    FeatureProcessor* proc = new FeatureProcessor(theImage, processSizeX, processSizeY);
+    // Start rotation-based detection (try multiple rotations)
+    const int maxRotations = 7;  // Maximum number of 45-degree rotations (0 to 315 degrees)
+    const float rotationStep = 45.0f;  // 45-degree rotation step
 
-    // Try to find the qyoo in the image
-    if (proc->findQyoo() > 0) {
-        // Process the dots for the qyoo found
-        proc->findDots(theImage);
+    bool qyooFound = false;  // Track if a qyoo is found
+    for (int rotation = 0; rotation <= maxRotations; ++rotation) {
+        // Rotate the image by the current angle
+        float angle = rotation * rotationStep;
+        gdImagePtr rotatedImage = gdImageRotateInterpolated(theImage, angle, 0); // 0 for black background
 
-        logVerbose("Feature processing completed successfully.");
+        if (!rotatedImage) {
+            std::cerr << "Error: Unable to rotate the image." << std::endl;
+            break; // Exit loop if rotation fails
+        }
 
-    } else {
+        logVerbose("Trying to find Qyoo with rotation: " + std::to_string(angle) + " degrees.");
+
+        // Instantiate the FeatureProcessor with the rotated image and its size
+        FeatureProcessor* proc = new FeatureProcessor(rotatedImage, processSizeX, processSizeY);
+        proc->processImage();
+
+        // Try to find the qyoo in the rotated image
+        if (proc->findQyoo() > 0) {
+            // Process the dots for the qyoo found
+            proc->findDots(rotatedImage);
+
+            logVerbose("Qyoo found after " + std::to_string(angle) + " degrees of rotation.");
+            qyooFound = true;
+
+            // Clean up the rotated image and break the loop since we found a Qyoo
+            gdImageDestroy(rotatedImage);
+            delete proc;
+            break;
+        }
+
+        // Clean up the rotated image and the processor before the next iteration
+        gdImageDestroy(rotatedImage);
+        delete proc;
+    }
+
+    if (!qyooFound) {
         std::cerr << "No Qyoo found in the image." << std::endl;
     }
 
-    // Clean up
-    gdImageDestroy(theImage); // Destroy the image to avoid memory leaks
-    delete proc;
+    // Clean up the original image to avoid memory leaks
+    gdImageDestroy(theImage);
 
     return 0;
 }

@@ -19,9 +19,6 @@
 
 // Pixels per dot for detection
 const int PixelsPerDot = 11;
-
-const int maxRotations = 7;  // Maximum number of 45-degree rotations
-const float rotationStep = 45.0f;  // 45-degree rotation step
 bool foundQyoo = false;
 
 // Define constants for closing distance and decimation tolerance
@@ -289,74 +286,44 @@ void FeatureProcessor::processImage()
 // Find valid Qyoo features
 int FeatureProcessor::findQyoo()
 {
-    processImage();
-
     logVerbose("Starting Qyoo detection...");
 
     featImg = new RawImageGray32(grayImg->getSizeX(), grayImg->getSizeY());
 
-    // Perform rotation-based detection, start at 0 and rotate by 45 degrees up to 7 times
-    for (int rotation = 0; rotation < maxRotations; rotation++) {
+    CannyFindFeatures(gradImg, thetaImg, 10.0, 60.0, feats, featImg);
 
-        // Perform rotation and store result in a temporary image
-        RawImageGray32* tempImg = gradImg->rotateImage(rotation * rotationStep);
+    logVerbose("Number of features detected: " + std::to_string(feats.size()));
 
-        if (tempImg) {
-            // Free the memory for the old gradImg
-            delete gradImg;
-            gradImg = nullptr;
+    // Iterate over the detected features and validate them
+    numFound = 0;
+    for (unsigned int ii = 0; ii < feats.size(); ii++)
+    {
+        Feature &feat = feats[ii];
 
-            // Assign the rotated image to gradImg
-            gradImg = tempImg;
-        } else {
-            logVerbose("Rotation failed for gradImg.");
-        }
+        feat.imgSizeX = grayImg->getSizeX();
+        feat.imgSizeY = grayImg->getSizeY();
 
+        feat.calcClosed(ClosedDist * ClosedDist);
+        feat.decimate(DecimateDist * DecimateDist);
+        feat.checkSizeAndPosition(grayImg->getSizeX(), grayImg->getSizeY());
 
-        // rotate images as needed:
-//         gradImg = gradImg->rotateImage(rotation * rotationStep);
-//         thetaImg = thetaImg->rotateImage(rotation * rotationStep);
-//         featImg = featImg->rotateImage(rotation * rotationStep);
-
-        CannyFindFeatures(gradImg, thetaImg, 10.0, 60.0, feats, featImg);
-
-        logVerbose("Number of features detected in rotation " + std::to_string(rotation * rotationStep) + " degrees: " + std::to_string(feats.size()));
-
-        // Iterate over the detected features and validate them
-        numFound = 0;
-        for (unsigned int ii = 0; ii < feats.size(); ii++)
+        if (feat.valid)
         {
-            Feature &feat = feats[ii];
-
-            feat.imgSizeX = grayImg->getSizeX();
-            feat.imgSizeY = grayImg->getSizeY();
-
-            feat.calcClosed(ClosedDist * ClosedDist);
-            feat.decimate(DecimateDist * DecimateDist);
-            feat.checkSizeAndPosition(grayImg->getSizeX(), grayImg->getSizeY());
-
-            if (feat.valid)
-            {
-                feat.findCorner();
-                feat.refineCornerAndFindAngles(10 * 10);
-                feat.modelCheck(0.04 * 0.04, 0.8);
-            }
-
-            if (feat.valid)
-            {
-                logVerbose("Qyoo shape feature found after " + std::to_string(rotation * rotationStep) + " degrees of rotation!");
-                numFound++;
-                foundQyoo = true;
-            }
+            feat.findCorner();
+            feat.refineCornerAndFindAngles(10 * 10);
+            feat.modelCheck(0.04 * 0.04, 0.8);
         }
 
-        if (foundQyoo) {
-            logVerbose("Terminating detection after finding valid Qyoo shape.");
-            break;  // Stop further rotations if we found a valid feature
+        if (feat.valid)
+        {
+            numFound++;
+            foundQyoo = true;
         }
     }
 
-    if (!foundQyoo) {
+    if (foundQyoo) {
+        logVerbose("Terminating detection after finding valid Qyoo shape.");
+    } else  {
         logVerbose("No Qyoo shapes found after all rotations.");
     }
 
