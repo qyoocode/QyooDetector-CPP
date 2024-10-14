@@ -126,6 +126,7 @@ public:
     void printCell(const char *what, int cx, int cy);
 
     RawImageGray8* rotateImage(float angle);
+    gdImagePtr makeGDImageTrue();
 
 protected:
     bool isMine;      ///< Indicates if the RawImage class owns the image memory.
@@ -202,6 +203,7 @@ public:
     RawImageGray32* rotateImage(float angle);
     gdImagePtr makeGDImage();
     void copyFromGDImage(gdImagePtr inImage);
+    gdImagePtr makeGDImageTrue();
 
 protected:
     int sizeX, sizeY; ///< Dimensions of the image.

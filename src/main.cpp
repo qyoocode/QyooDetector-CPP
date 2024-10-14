@@ -6,6 +6,14 @@
 // Global verbose flag for controlling debug output
 bool verbose = false;
 
+std::string getBaseFilename(const std::string& filepath) {
+    size_t lastSlash = filepath.find_last_of("/\\");
+    std::string filename = (lastSlash == std::string::npos) ? filepath : filepath.substr(lastSlash + 1);
+
+    size_t lastDot = filename.find_last_of(".");
+    return (lastDot == std::string::npos) ? filename : filename.substr(0, lastDot);
+}
+
 // Function to load a PNG image using gd
 gdImagePtr loadImage(const std::string& fileName) {
     FILE *infile = fopen(fileName.c_str(), "rb");
@@ -46,6 +54,7 @@ int main(int argc, char* argv[]) {
     }
 
     std::string image_file = argv[1]; // The first argument should be the image file
+    std::string baseFilename = getBaseFilename(image_file); // Get base filename without extension
 
     // Load the image (using gdImagePtr)
     gdImagePtr theImage = loadImage(image_file);
@@ -94,6 +103,10 @@ int main(int argc, char* argv[]) {
         // Instantiate the FeatureProcessor with the rotated image and its size
         FeatureProcessor* proc = new FeatureProcessor(rotatedImage, processSizeX, processSizeY);
         proc->processImage();
+
+        if (verbose) {
+            proc->saveDebugImages(baseFilename, angle);
+        }
 
         // Try to find the qyoo in the rotated image
         if (proc->findQyoo() > 0) {

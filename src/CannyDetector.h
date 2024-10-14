@@ -19,7 +19,7 @@ void CannyGradientAndTheta(RawImageGray8 *gaussImg,RawImageGray32 *gradImg,RawIm
 // Run non-maximal supression
 // Anything below the threshhold is nuked
 // Edges that are at the "top" of their gradient will be marked as Thin
-void CannyNonMaxSupress(RawImageGray32 *gradImg,RawImageGray8 *thetaImg,int gradThresh);
+void CannyNonMaxSuppress(RawImageGray32 *gradImg,RawImageGray8 *thetaImg,int gradThresh);
 
 // Find features (in a really simple way)
 void CannyFindFeatures(RawImageGray32 *gradImg,RawImageGray8 *thetaImg,int minThresh,int maxThresh,std::vector<Feature> &feats,RawImageGray32 *featImg);

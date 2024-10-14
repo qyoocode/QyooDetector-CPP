@@ -73,7 +73,7 @@ void CannyGradientAndTheta(RawImageGray8 *gaussImg,RawImageGray32 *gradImg,RawIm
 }
 
 // Run the non-maximal supression
-void CannyNonMaxSupress(RawImageGray32 *gradImg,RawImageGray8 *thetaImg,int gradThresh)
+void CannyNonMaxSuppress(RawImageGray32 *gradImg,RawImageGray8 *thetaImg,int gradThresh)
 {
 	int numZero = 0,numNonZero=0;
 

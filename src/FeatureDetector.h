@@ -71,6 +71,8 @@ class FeatureProcessor
   // Destructor: Cleans up resources used by the processor.
   ~FeatureProcessor();
 
+  void saveDebugImages(const std::string& baseFilename, float angle);
+
   // Processes the image up to the point of finding thin edges and gradients.
   void processImage();
 

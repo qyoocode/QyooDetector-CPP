@@ -265,6 +265,50 @@ FeatureProcessor::~FeatureProcessor()
         delete dot;
 }
 
+void FeatureProcessor::saveDebugImages(const std::string& baseFilename, float angle)
+{
+    // Create filenames using the base filename and current rotation angle
+    std::string gradFilename = "output/" + baseFilename + "_grad_" + std::to_string(static_cast<int>(angle)) + ".png";
+    std::string thetaFilename = "output/" + baseFilename + "_theta_" + std::to_string(static_cast<int>(angle)) + ".png";
+    std::string featImgFilename = "output/" + baseFilename + "_featImg_" + std::to_string(static_cast<int>(angle)) + ".png";
+
+    // Save gradient image (gradImg)
+    gdImagePtr gradImage = gradImg->makeGDImageTrue();  // Call makeGDImageTrue() on gradImg (RawImageGray32 object)
+    FILE* gradFile = fopen(gradFilename.c_str(), "wb");
+    if (gradFile) {
+        gdImagePng(gradImage, gradFile);  // Save grad image as PNG
+        fclose(gradFile);
+        gdImageDestroy(gradImage);
+        logVerbose("Saved gradient image as: " + gradFilename);
+    } else {
+        logVerbose("Failed to save gradient image.");
+    }
+
+    // Save theta image (thetaImg)
+    gdImagePtr thetaImage = thetaImg->makeGDImageTrue();  // Call makeGDImageTrue() on thetaImg (RawImageGray8 object)
+    FILE* thetaFile = fopen(thetaFilename.c_str(), "wb");
+    if (thetaFile) {
+        gdImagePng(thetaImage, thetaFile);  // Save theta image as PNG
+        fclose(thetaFile);
+        gdImageDestroy(thetaImage);
+        logVerbose("Saved theta image as: " + thetaFilename);
+    } else {
+        logVerbose("Failed to save theta image.");
+    }
+
+    // Save feature image (featImg)
+    gdImagePtr featImage = featImg->makeGDImageTrue();  // Call makeGDImageTrue() on featImg (RawImageGray32 object)
+    FILE* featImgFile = fopen(featImgFilename.c_str(), "wb");
+    if (featImgFile) {
+        gdImagePng(featImage, featImgFile);  // Save feature image as PNG
+        fclose(featImgFile);
+        gdImageDestroy(featImage);
+        logVerbose("Saved feature image as: " + featImgFilename);
+    } else {
+        logVerbose("Failed to save feature image.");
+    }
+}
+
 // Process the image to detect edges and gradients
 void FeatureProcessor::processImage()
 {
@@ -280,18 +324,18 @@ void FeatureProcessor::processImage()
     CannyGradientAndTheta(gaussImg, gradImg, thetaImg);
 
     // Suppress non-maximum values to highlight edges
-    CannyNonMaxSupress(gradImg, thetaImg, 60.0);
-}
+    CannyNonMaxSuppress(gradImg, thetaImg, 60.0);
 
-// Find valid Qyoo features
-int FeatureProcessor::findQyoo()
-{
     logVerbose("Starting Qyoo detection...");
 
     featImg = new RawImageGray32(grayImg->getSizeX(), grayImg->getSizeY());
 
     CannyFindFeatures(gradImg, thetaImg, 10.0, 60.0, feats, featImg);
+}
 
+// Find valid Qyoo features
+int FeatureProcessor::findQyoo()
+{
     logVerbose("Number of features detected: " + std::to_string(feats.size()));
 
     // Iterate over the detected features and validate them

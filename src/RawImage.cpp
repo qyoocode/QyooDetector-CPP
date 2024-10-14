@@ -409,3 +409,49 @@ void RawImageGray32::copyFromGDImage(gdImagePtr inImage)
         }
     }
 }
+
+gdImagePtr RawImageGray32::makeGDImageTrue()
+{
+    // Convert RawImageGray32 to a GD true-color image
+    gdImagePtr newImage = gdImageCreateTrueColor(sizeX, sizeY);  // Use gdImageCreateTrueColor for true color image
+
+    if (!newImage) {
+        logVerbose("Failed to create GD true-color image.");
+        return nullptr;
+    }
+
+    for (unsigned int ix = 0; ix < sizeX; ix++)
+    {
+        for (unsigned int iy = 0; iy < sizeY; iy++)
+        {
+            int pix = getPixel(ix, iy);  // Assuming getPixel returns grayscale pixel value
+            int color = gdTrueColor(pix, pix, pix);  // Set R, G, B to the same grayscale value
+            gdImageSetPixel(newImage, ix, iy, color);  // Use true color
+        }
+    }
+
+    return newImage;
+}
+
+gdImagePtr RawImageGray8::makeGDImageTrue()
+{
+    // Convert RawImageGray32 to a GD true-color image
+    gdImagePtr newImage = gdImageCreateTrueColor(sizeX, sizeY);  // Use gdImageCreateTrueColor for true color image
+
+    if (!newImage) {
+        logVerbose("Failed to create GD true-color image.");
+        return nullptr;
+    }
+
+    for (unsigned int ix = 0; ix < sizeX; ix++)
+    {
+        for (unsigned int iy = 0; iy < sizeY; iy++)
+        {
+            int pix = getPixel(ix, iy);  // Assuming getPixel returns grayscale pixel value
+            int color = gdTrueColor(pix, pix, pix);  // Set R, G, B to the same grayscale value
+            gdImageSetPixel(newImage, ix, iy, color);  // Use true color
+        }
+    }
+
+    return newImage;
+}
