@@ -678,6 +678,34 @@ static const char *jsonBoolean(bool value)
     return value ? "true" : "false";
 }
 
+static const char *normalizationOutcomeCode(const Feature &feature,
+                                            NormalizationMode normalization)
+{
+    if (!feature.valid)
+        return "not_attempted_candidate_rejected";
+    if (normalization == NormalizationAffine)
+    {
+        if (feature.affinePayloadExtracted) return "affine_payload_extracted";
+        if (feature.affineNormalizationAvailable) return "payload_extraction_failed";
+        return feature.affineNormalizationAttempted
+            ? "affine_normalization_unavailable" : "not_attempted";
+    }
+    if (feature.projectivePayloadExtracted)
+    {
+        if (feature.projectiveDotRefined) return "projective_refined_payload_extracted";
+        if (feature.projectiveAffineFallbackUsed) return "affine_fallback_payload_extracted";
+        return "projective_payload_extracted";
+    }
+    if (feature.projectiveDotCorrespondenceCount >= 4 && !feature.projectiveDotRefined)
+        return "projective_fit_rejected";
+    if (feature.projectiveAffineFallbackRejected)
+        return "insufficient_interior_correspondences_fallback_rejected";
+    if (feature.projectiveNormalizationAvailable)
+        return "payload_extraction_failed";
+    return feature.projectiveNormalizationAttempted
+        ? "projective_normalization_unavailable" : "not_attempted";
+}
+
 std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
                                               NormalizationMode normalization,
                                               ProjectiveFallbackPolicy fallbackPolicy) const
@@ -802,6 +830,8 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
                << jsonBoolean(feature.affineNormalizationAvailable || feature.projectiveNormalizationAvailable);
         output << ",\"payload_extracted\":"
                << jsonBoolean(feature.affinePayloadExtracted || feature.projectivePayloadExtracted);
+        output << ",\"normalization_outcome\":"
+               << jsonString(normalizationOutcomeCode(feature, normalization));
         output << '}';
     }
     output << "]}";

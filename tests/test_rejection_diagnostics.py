@@ -24,6 +24,19 @@ REASON_CODES = {
     "circle_square_geometry",
     "outline_validation",
 }
+NORMALIZATION_OUTCOMES = {
+    "not_attempted_candidate_rejected",
+    "affine_payload_extracted",
+    "payload_extraction_failed",
+    "affine_normalization_unavailable",
+    "not_attempted",
+    "projective_refined_payload_extracted",
+    "affine_fallback_payload_extracted",
+    "projective_payload_extracted",
+    "projective_fit_rejected",
+    "insufficient_interior_correspondences_fallback_rejected",
+    "projective_normalization_unavailable",
+}
 
 
 def run(detector: Path, image: Path, diagnostics: bool) -> subprocess.CompletedProcess[str]:
@@ -62,6 +75,7 @@ def prove_case(detector: Path, image: Path, should_accept: bool) -> None:
     assert sum(feature["accepted"] for feature in report["features"]) == int(should_accept)
     for feature in report["features"]:
         assert feature["rejection_reason"] in REASON_CODES
+        assert feature["normalization_outcome"] in NORMALIZATION_OUTCOMES
         assert 0.0 <= feature["area_fraction"] <= 1.0
         assert 0.0 <= feature["aspect_ratio"] <= 1.0
         assert len(feature["near_corner_edges"]) == feature["near_corner_edge_count"]
