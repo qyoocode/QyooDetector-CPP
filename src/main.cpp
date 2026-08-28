@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <gd.h>
 #include "FeatureDetector.h"
@@ -14,19 +15,36 @@ void logVerbose(const std::string& message) {
     }
 }
 
+static std::string diagnosticJsonString(const std::string &value) {
+    std::ostringstream output;
+    output << '"';
+    for (unsigned char character : value) {
+        if (character == '"' || character == '\\') output << '\\' << character;
+        else if (character == '\n') output << "\\n";
+        else if (character == '\r') output << "\\r";
+        else if (character == '\t') output << "\\t";
+        else output << character;
+    }
+    output << '"';
+    return output.str();
+}
+
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <image_file> [--v|--verbose] "
-                  << "[--normalization affine|projective|shadow]" << std::endl;
+                  << "[--normalization affine|projective|shadow] [--diagnostics]" << std::endl;
         return 1;
     }
 
     // Check if verbose flag is set
     NormalizationMode normalization = NormalizationProjective;
+    bool diagnostics = false;
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
         if (arg == "--v" || arg == "--verbose") {
             verbose = true;  // Enable verbose logging
+        } else if (arg == "--diagnostics") {
+            diagnostics = true;
         } else if (arg == "--normalization") {
             if (i + 1 >= argc) {
                 std::cerr << "Error: --normalization requires affine, projective, or shadow." << std::endl;
@@ -48,6 +66,12 @@ int main(int argc, char* argv[]) {
     // Load the image (using gdImagePtr)
     gdImagePtr theImage = loadImage(image_file);
     if (!theImage) {
+        if (diagnostics) {
+            std::cout << "Diagnostics JSON = {\"schema\":\"org.qyoo.detector.rejection-diagnostics\","
+                      << "\"schema_version\":1,\"image_id\":" << diagnosticJsonString(image_file)
+                      << ",\"image_loaded\":false,\"failure_stage\":\"image_load_preparation\"}"
+                      << std::endl;
+        }
         return 1; // Exit if image loading fails
     }
 
@@ -86,6 +110,9 @@ int main(int argc, char* argv[]) {
     } else {
         std::cerr << "No Qyoo found in the image." << std::endl;
     }
+
+    if (diagnostics)
+        std::cout << "Diagnostics JSON = " << proc->diagnosticsJson(image_file, normalization) << std::endl;
 
     // Clean up
     gdImageDestroy(theImage); // Destroy the image to avoid memory leaks

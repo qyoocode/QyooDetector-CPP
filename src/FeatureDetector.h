@@ -97,6 +97,10 @@ class FeatureProcessor
   // Find and process the dots in the valid Qyoo features.
   void findDots(gdImagePtr inImage, NormalizationMode normalization = NormalizationProjective);
 
+  // Optional decision-neutral diagnostics for test/recovery harnesses.
+  std::string diagnosticsJson(const std::string &imageId,
+                              NormalizationMode normalization) const;
+
  public:
   ConvolutionFilterInt *gaussFilter;  // Gaussian filter to reduce noise in the image
   RawImageGray8 *grayImg;             // Grayscale version of the input image

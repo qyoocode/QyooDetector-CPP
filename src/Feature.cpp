@@ -13,6 +13,24 @@
 #import "CannyDetector.h"
 #include "Logger.h"
 
+const char *featureRejectionReasonCode(FeatureRejectionReason reason)
+{
+	switch (reason)
+	{
+		case FeatureNotRejected: return "none";
+		case FeatureDegenerateBounds: return "degenerate_bounds";
+		case FeatureAspectRatioRejected: return "aspect_ratio";
+		case FeatureTooSmall: return "feature_too_small";
+		case FeatureTooLarge: return "feature_too_large";
+		case FeatureCornerNotFound: return "distinctive_corner_not_found";
+		case FeatureCornerEdgesInsufficient: return "corner_edges_insufficient";
+		case FeatureCornerAngleRejected: return "corner_angle";
+		case FeatureFarEdgeRejected: return "circle_square_geometry";
+		case FeatureOutlineModelRejected: return "outline_validation";
+	}
+	return "other";
+}
+
 // Tack a point on the end
 void Feature::addPointEnd(int cx,int cy)
 {
@@ -41,6 +59,7 @@ void Feature::calcClosed(int dist2)
 // Note: This has problems depending on where the start and end are
 void Feature::decimate(float tol2)
 {
+	originalPointCount = points.size();
 	std::list<Point> newPoints = points;
 
 	// Keep going while we're pulling points out
@@ -97,6 +116,7 @@ void Feature::decimate(float tol2)
 
 	origPoints = points;
 	points = newPoints;
+	decimatedPointCount = points.size();
 }
 
 // Calculate the center of mass and then pick the farthest point from that
@@ -128,6 +148,11 @@ void Feature::findCorner()
 		}
 	}
 	logVerbose("Corner found at (" + std::to_string(cornX) + ", " + std::to_string(cornY) + "), distance: " + std::to_string(maxDist2));
+	if (!cornerValid)
+	{
+		valid = false;
+		rejectionReason = FeatureCornerNotFound;
+	}
 }
 
 // We don't want things too long and skinny
@@ -151,13 +176,28 @@ void Feature::checkSizeAndPosition(int imgSizeX,int imgSizeY)
 	}
 
 	int sizeX = maxX - minX, sizeY = maxY - minY;
+	boundsMinX = minX;
+	boundsMinY = minY;
+	boundsMaxX = maxX;
+	boundsMaxY = maxY;
+	boundsWidth = sizeX;
+	boundsHeight = sizeY;
+	aspectRatio = sizeX > 0 && sizeY > 0
+		? static_cast<double>(std::min(sizeX, sizeY)) / static_cast<double>(std::max(sizeX, sizeY))
+		: 0.0;
 
 	// Only put up with an aspect ratio of 1:2 or so
-	if ((sizeX == 0 || sizeY == 0) ||
-		(sizeX > sizeY && (float)sizeY / (float)sizeX < MinAspectRatio) ||
+	if (sizeX == 0 || sizeY == 0)
+	{
+		valid = false;
+		rejectionReason = FeatureDegenerateBounds;
+		return;
+	}
+	if ((sizeX > sizeY && (float)sizeY / (float)sizeX < MinAspectRatio) ||
 		(sizeY > sizeX && (float)sizeX / (float)sizeY < MinAspectRatio))
 	{
 		valid = false;
+		rejectionReason = FeatureAspectRatioRejected;
 		return;
 	}
 
@@ -165,8 +205,19 @@ void Feature::checkSizeAndPosition(int imgSizeX,int imgSizeY)
 	float totalArea = imgSizeX*imgSizeY;
 	float featArea = sizeX*sizeY;
 	float areaFrac = featArea / totalArea;
-	if (areaFrac < MinAreaFraction || areaFrac > MaxAreaFraction)
+	areaFraction = areaFrac;
+	if (areaFrac < MinAreaFraction)
+	{
 		valid = false;
+		rejectionReason = FeatureTooSmall;
+	}
+	else if (areaFrac > MaxAreaFraction)
+	{
+		valid = false;
+		rejectionReason = FeatureTooLarge;
+	}
+	else
+		sizeCheckPassed = true;
 }
 
 // Simple class for edges we're comparing below
@@ -262,6 +313,7 @@ void Feature::refineCornerAndFindAngles(int searchDist2)
 
 	// Start out invalid and see where we go
 	edgesValid = false;
+	nearCornerEdgeCount = static_cast<int>(edges.size());
 	if (edges.size() >= 2)
 	{
 		std::sort(edges.begin(),edges.end(),compFunction);
@@ -272,6 +324,7 @@ void Feature::refineCornerAndFindAngles(int searchDist2)
 		ang1 = edge1.calcAngle();
 		float angDiff = ang1 - ang0;  angDiff = abs(angDiff);
 		if (angDiff > 180.0)  angDiff -= 180.0;
+		cornerAngleDifference = angDiff;
 		if (angDiff > 65 && angDiff < 125)
 		{
 			// Store the edges
@@ -348,13 +401,19 @@ void Feature::refineCornerAndFindAngles(int searchDist2)
 
 			}
 		}
+		else
+			rejectionReason = FeatureCornerAngleRejected;
 	}
 	else
 	{
 		logVerbose("Not enough valid edges found for angle comparison.");
+		rejectionReason = FeatureCornerEdgesInsufficient;
 	}
 
 	valid = edgesValid && farEdgesValid;
+	cornerGeometryPassed = valid;
+	if (edgesValid && !farEdgesValid)
+		rejectionReason = FeatureFarEdgeRejected;
 }
 
 // Check a single point against the ideal model
@@ -413,11 +472,18 @@ bool Feature::modelCheck(float nearDist2,float nearFrac)
 	}
 
 	modelChecked = ((float)numClose/ (float) total > nearFrac);
+	modelClosePointCount = numClose;
+	modelTotalPointCount = total;
+	modelCloseFraction = total > 0 ? static_cast<double>(numClose) / total : 0.0;
 
 	logVerbose("Model check: " + std::to_string(numClose) + " out of " + std::to_string(total) + " points close enough.");
 
 	if (!modelChecked)
+	{
 		valid = false;
+		rejectionReason = FeatureOutlineModelRejected;
+	}
+	outlineCheckPassed = modelChecked;
 	return modelChecked;
 }
 

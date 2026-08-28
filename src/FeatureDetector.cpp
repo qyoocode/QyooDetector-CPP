@@ -11,6 +11,8 @@
  */
 
 #include <iostream>
+#include <iomanip>
+#include <map>
 #include <sstream>
 
 #import "FeatureDetector.h"
@@ -180,6 +182,10 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
     normalization = inNormalization;
     resultLabel = inResultLabel;
     normalizationAvailable = false;
+	if (normalization == NormalizationAffine)
+		feat->affineNormalizationAttempted = true;
+	else if (normalization == NormalizationProjective)
+		feat->projectiveNormalizationAttempted = true;
 
     QyooModel *qyooModel = QyooModel::getQyooModel();
     float imgWidth = gdImageSX(inImage);
@@ -261,6 +267,7 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
                 return;
             }
             logVerbose("Projective dot refinement unavailable; using affine fallback.");
+			feat->projectiveAffineFallbackUsed = true;
         }
         ProjectiveTransform normalizedToImage = feat->projectiveDotRefined
             ? inputScale * feat->projectiveMat * dotTranslation * dotScale
@@ -283,6 +290,10 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
     }
     grayImg->runContrast();
     normalizationAvailable = true;
+	if (normalization == NormalizationAffine)
+		feat->affineNormalizationAvailable = true;
+	else if (normalization == NormalizationProjective)
+		feat->projectiveNormalizationAvailable = true;
 }
 
 // Destructor for the dot processor
@@ -449,6 +460,10 @@ void FeatureDotsProcessor::findDotsGray() {
 
         feat->dotDecStr = std::to_string(std::stoull(qyooBits, nullptr, 2));  // Convert binary string to decimal
         std::cout << prefix << "Qyoo value = " << feat->dotDecStr << std::endl;
+		if (normalization == NormalizationAffine)
+			feat->affinePayloadExtracted = true;
+		else if (normalization == NormalizationProjective)
+			feat->projectivePayloadExtracted = true;
     }
 
     // Save the image with the dots circled and x notated to see where pattern is detected
@@ -586,4 +601,165 @@ void FeatureProcessor::findDots(gdImagePtr inImage, NormalizationMode normalizat
             }
         }
     }
+}
+
+static const char *normalizationModeCode(NormalizationMode normalization)
+{
+    switch (normalization)
+    {
+        case NormalizationAffine: return "affine";
+        case NormalizationProjective: return "projective";
+        case NormalizationShadow: return "shadow";
+    }
+    return "unknown";
+}
+
+static std::string jsonString(const std::string &value)
+{
+    std::ostringstream output;
+    output << '"';
+    for (unsigned char character : value)
+    {
+        switch (character)
+        {
+            case '"': output << "\\\""; break;
+            case '\\': output << "\\\\"; break;
+            case '\b': output << "\\b"; break;
+            case '\f': output << "\\f"; break;
+            case '\n': output << "\\n"; break;
+            case '\r': output << "\\r"; break;
+            case '\t': output << "\\t"; break;
+            default:
+                if (character < 0x20)
+                {
+                    output << "\\u" << std::hex << std::setw(4) << std::setfill('0')
+                           << static_cast<int>(character) << std::dec;
+                }
+                else
+                    output << character;
+        }
+    }
+    output << '"';
+    return output.str();
+}
+
+static const char *jsonBoolean(bool value)
+{
+    return value ? "true" : "false";
+}
+
+std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
+                                              NormalizationMode normalization) const
+{
+    const FeatureRejectionReason reasons[] = {
+        FeatureNotRejected,
+        FeatureDegenerateBounds,
+        FeatureAspectRatioRejected,
+        FeatureTooSmall,
+        FeatureTooLarge,
+        FeatureCornerNotFound,
+        FeatureCornerEdgesInsufficient,
+        FeatureCornerAngleRejected,
+        FeatureFarEdgeRejected,
+        FeatureOutlineModelRejected
+    };
+    std::map<FeatureRejectionReason, int> reasonCounts;
+    int sizePassed = 0;
+    int cornerSelected = 0;
+    int cornerGeometryPassed = 0;
+    int outlinePassed = 0;
+    int projectiveOutlineAvailable = 0;
+    int affineAttempted = 0;
+    int projectiveAttempted = 0;
+    int affineFallback = 0;
+    int normalizationAvailable = 0;
+    int payloadExtracted = 0;
+    for (const Feature &feature : feats)
+    {
+        reasonCounts[feature.rejectionReason]++;
+        sizePassed += feature.sizeCheckPassed;
+        cornerSelected += feature.cornerValid;
+        cornerGeometryPassed += feature.cornerGeometryPassed;
+        outlinePassed += feature.outlineCheckPassed;
+        projectiveOutlineAvailable += feature.projectiveCorrespondenceCount > 0;
+        affineAttempted += feature.affineNormalizationAttempted;
+        projectiveAttempted += feature.projectiveNormalizationAttempted;
+        affineFallback += feature.projectiveAffineFallbackUsed;
+        normalizationAvailable += feature.affineNormalizationAvailable ||
+                                  feature.projectiveNormalizationAvailable;
+        payloadExtracted += feature.affinePayloadExtracted || feature.projectivePayloadExtracted;
+    }
+
+    std::ostringstream output;
+    output << std::setprecision(12);
+    output << "{\"schema\":\"org.qyoo.detector.rejection-diagnostics\",\"schema_version\":1";
+    output << ",\"image_id\":" << jsonString(imageId);
+    output << ",\"image_loaded\":true";
+    output << ",\"image_size\":{\"width\":" << grayImg->getSizeX()
+           << ",\"height\":" << grayImg->getSizeY() << "}";
+    output << ",\"normalization_requested\":" << jsonString(normalizationModeCode(normalization));
+    output << ",\"stages\":{";
+    output << "\"raw_feature_count\":" << feats.size();
+    output << ",\"size_pass_count\":" << sizePassed;
+    output << ",\"corner_selected_count\":" << cornerSelected;
+    output << ",\"corner_geometry_pass_count\":" << cornerGeometryPassed;
+    output << ",\"outline_validation_pass_count\":" << outlinePassed;
+    output << ",\"accepted_candidate_count\":" << numFound;
+    output << ",\"projective_outline_available_count\":" << projectiveOutlineAvailable;
+    output << ",\"affine_normalization_attempted_count\":" << affineAttempted;
+    output << ",\"projective_normalization_attempted_count\":" << projectiveAttempted;
+    output << ",\"affine_fallback_count\":" << affineFallback;
+    output << ",\"normalization_available_count\":" << normalizationAvailable;
+    output << ",\"payload_extracted_count\":" << payloadExtracted << "}";
+    output << ",\"rejection_reason_counts\":{";
+    for (size_t index = 0; index < sizeof(reasons) / sizeof(reasons[0]); index++)
+    {
+        if (index != 0) output << ',';
+        output << jsonString(featureRejectionReasonCode(reasons[index])) << ':'
+               << reasonCounts[reasons[index]];
+    }
+    output << "},\"features\":[";
+    for (size_t index = 0; index < feats.size(); index++)
+    {
+        if (index != 0) output << ',';
+        const Feature &feature = feats[index];
+        output << "{\"feature_index\":" << index;
+        output << ",\"rejection_reason\":" << jsonString(featureRejectionReasonCode(feature.rejectionReason));
+        output << ",\"accepted\":" << jsonBoolean(feature.valid);
+        output << ",\"closed\":" << jsonBoolean(feature.closed);
+        output << ",\"original_point_count\":" << feature.originalPointCount;
+        output << ",\"decimated_point_count\":" << feature.decimatedPointCount;
+        output << ",\"bounds\":{\"min_x\":" << feature.boundsMinX
+               << ",\"min_y\":" << feature.boundsMinY
+               << ",\"max_x\":" << feature.boundsMaxX
+               << ",\"max_y\":" << feature.boundsMaxY
+               << ",\"width\":" << feature.boundsWidth
+               << ",\"height\":" << feature.boundsHeight << "}";
+        output << ",\"aspect_ratio\":" << feature.aspectRatio;
+        output << ",\"area_fraction\":" << feature.areaFraction;
+        output << ",\"size_check_passed\":" << jsonBoolean(feature.sizeCheckPassed);
+        output << ",\"corner_selected\":" << jsonBoolean(feature.cornerValid);
+        output << ",\"near_corner_edge_count\":" << feature.nearCornerEdgeCount;
+        output << ",\"corner_angle_difference_degrees\":" << feature.cornerAngleDifference;
+        output << ",\"corner_geometry_passed\":" << jsonBoolean(feature.cornerGeometryPassed);
+        output << ",\"model_close_point_count\":" << feature.modelClosePointCount;
+        output << ",\"model_total_point_count\":" << feature.modelTotalPointCount;
+        output << ",\"model_close_fraction\":" << feature.modelCloseFraction;
+        output << ",\"outline_validation_passed\":" << jsonBoolean(feature.outlineCheckPassed);
+        output << ",\"projective_outline_available\":" << jsonBoolean(feature.projectiveCorrespondenceCount > 0);
+        output << ",\"projective_outline_rms_pixels\":" << feature.projectiveRmsError;
+        output << ",\"projective_outline_max_error_pixels\":" << feature.projectiveMaxError;
+        output << ",\"projective_dot_correspondence_count\":" << feature.projectiveDotCorrespondenceCount;
+        output << ",\"projective_dot_refined\":" << jsonBoolean(feature.projectiveDotRefined);
+        output << ",\"projective_affine_fallback_used\":" << jsonBoolean(feature.projectiveAffineFallbackUsed);
+        output << ",\"affine_normalization_attempted\":" << jsonBoolean(feature.affineNormalizationAttempted);
+        output << ",\"projective_normalization_attempted\":" << jsonBoolean(feature.projectiveNormalizationAttempted);
+        output << ",\"normalization_available\":"
+               << jsonBoolean(feature.affineNormalizationAvailable || feature.projectiveNormalizationAvailable);
+        output << ",\"payload_extracted\":"
+               << jsonBoolean(feature.affinePayloadExtracted || feature.projectivePayloadExtracted);
+        output << '}';
+    }
+    output << "]}";
+    return output.str();
 }

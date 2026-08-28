@@ -15,6 +15,7 @@ LDFLAGS = -L/opt/homebrew/lib -lgd  # Linker flags (for libraries)
 
 # Files
 SRC_FILES = $(wildcard $(SRC_DIR)/*.cpp)
+HEADER_FILES = $(wildcard $(SRC_DIR)/*.h)
 OBJ_FILES = $(SRC_FILES:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 EXECUTABLE = $(BIN_DIR)/qyoo_detector
 CORE_OBJ_FILES = $(filter-out $(OBJ_DIR)/main.o,$(OBJ_FILES))
@@ -34,6 +35,8 @@ IMAGE_INPUT_JPG ?= ../recovery/task-03/focused-tests/image-input/expanded_raw_ze
 IMAGE_INPUT_JPEG ?= ../recovery/task-03/focused-tests/image-input/expanded_raw_zero.jpeg
 PROJECTIVE_MANIFEST ?= ../recovery/task-02/corpus/corpus_manifest.json
 PROJECTIVE_CONTROL_RESULTS ?= ../recovery/task-04/raw-evidence/00-control/task01_frozen_55/per_case_results.jsonl
+DIAGNOSTICS_ACCEPTED_IMAGE ?= ../recovery/task-02/corpus/images/expanded_raw_zero.png
+DIAGNOSTICS_REJECTED_IMAGE ?= ../recovery/task-01/artifacts/detector-baseline/images/rotation_135deg.png
 
 # Target to build everything
 all: $(EXECUTABLE)
@@ -55,7 +58,7 @@ $(EXECUTABLE): $(OBJ_FILES) | $(BIN_DIR)
 	$(CXX) $(OBJ_FILES) -o $@ $(LDFLAGS)
 
 # Rule to compile source files into object files
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(HEADER_FILES) | $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(ASPECT_TEST): $(TEST_DIR)/test_feature_aspect_ratio.cpp $(CORE_OBJ_FILES) | $(TEST_BIN_DIR)
@@ -118,6 +121,10 @@ test-projective-sampling: $(PROJECTIVE_SAMPLING_TEST)
 .PHONY: test-projective-cli
 test-projective-cli: $(EXECUTABLE)
 	python3 $(TEST_DIR)/test_projective_cli.py $(EXECUTABLE) $(PROJECTIVE_MANIFEST) $(PROJECTIVE_CONTROL_RESULTS)
+
+.PHONY: test-diagnostics
+test-diagnostics: $(EXECUTABLE)
+	python3 $(TEST_DIR)/test_rejection_diagnostics.py $(EXECUTABLE) $(DIAGNOSTICS_ACCEPTED_IMAGE) $(DIAGNOSTICS_REJECTED_IMAGE)
 
 # Clean up generated files
 clean:

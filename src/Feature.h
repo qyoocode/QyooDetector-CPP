@@ -13,6 +13,22 @@
 #import "Geometry.h"
 #import "RawImage.h"
 
+enum FeatureRejectionReason
+{
+	FeatureNotRejected,
+	FeatureDegenerateBounds,
+	FeatureAspectRatioRejected,
+	FeatureTooSmall,
+	FeatureTooLarge,
+	FeatureCornerNotFound,
+	FeatureCornerEdgesInsufficient,
+	FeatureCornerAngleRejected,
+	FeatureFarEdgeRejected,
+	FeatureOutlineModelRejected
+};
+
+const char *featureRejectionReasonCode(FeatureRejectionReason reason);
+
 /* Vector feature
 	Initially represents a list of points and, as it passes various tests,
     gains more qyoo specific information.
@@ -20,7 +36,45 @@
 class Feature
 {
 public:
-	Feature() { valid = true; cornerValid = false;  edgesValid = false;  farEdgesValid = false; closed = false; projectiveValid = false;};
+	Feature()
+	{
+		valid = true;
+		cornerValid = false;
+		edgesValid = false;
+		farEdgesValid = false;
+		closed = false;
+		modelChecked = false;
+		projectiveValid = false;
+		projectiveIterations = 0;
+		projectiveCorrespondenceCount = 0;
+		projectiveRmsError = 0.0;
+		projectiveMaxError = 0.0;
+		projectiveDotRefined = false;
+		projectiveDotCorrespondenceCount = 0;
+		projectiveDotRmsError = 0.0;
+		projectiveRefinedOutlineRmsError = 0.0;
+		projectiveRefinedOutlineMaxError = 0.0;
+		projectiveRefinedOutlineNearFraction = 0.0;
+		rejectionReason = FeatureNotRejected;
+		boundsMinX = boundsMinY = boundsMaxX = boundsMaxY = 0;
+		boundsWidth = boundsHeight = 0;
+		aspectRatio = areaFraction = 0.0;
+		originalPointCount = decimatedPointCount = 0;
+		nearCornerEdgeCount = 0;
+		cornerAngleDifference = 0.0;
+		modelClosePointCount = modelTotalPointCount = 0;
+		modelCloseFraction = 0.0;
+		sizeCheckPassed = false;
+		cornerGeometryPassed = false;
+		outlineCheckPassed = false;
+		affineNormalizationAttempted = false;
+		affineNormalizationAvailable = false;
+		affinePayloadExtracted = false;
+		projectiveNormalizationAttempted = false;
+		projectiveNormalizationAvailable = false;
+		projectiveAffineFallbackUsed = false;
+		projectivePayloadExtracted = false;
+	};
 	Feature(const Feature &that) { *this = that; }
 	~Feature() { };
     
@@ -68,6 +122,18 @@ public:
 		int x,y;
 	};
 	bool valid;        // Overally validity of the feature
+	FeatureRejectionReason rejectionReason;
+	int boundsMinX,boundsMinY,boundsMaxX,boundsMaxY;
+	int boundsWidth,boundsHeight;
+	double aspectRatio,areaFraction;
+	size_t originalPointCount,decimatedPointCount;
+	int nearCornerEdgeCount;
+	double cornerAngleDifference;
+	int modelClosePointCount,modelTotalPointCount;
+	double modelCloseFraction;
+	bool sizeCheckPassed;
+	bool cornerGeometryPassed;
+	bool outlineCheckPassed;
 	
 	int imgSizeX,imgSizeY;  // Size of image we found the feature in
 
@@ -101,6 +167,13 @@ public:
 	double projectiveRefinedOutlineRmsError;
 	double projectiveRefinedOutlineMaxError;
 	double projectiveRefinedOutlineNearFraction;
+	bool affineNormalizationAttempted;
+	bool affineNormalizationAvailable;
+	bool affinePayloadExtracted;
+	bool projectiveNormalizationAttempted;
+	bool projectiveNormalizationAvailable;
+	bool projectiveAffineFallbackUsed;
+	bool projectivePayloadExtracted;
 	
 	// The raw bits for the dots, if they've been read
 	std::vector<unsigned char> dotBits;
