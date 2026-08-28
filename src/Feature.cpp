@@ -324,15 +324,34 @@ void Feature::refineCornerAndFindAngles(int searchDist2)
 	if (edges.size() >= 2)
 	{
 		std::sort(edges.begin(),edges.end(),compFunction);
-		LongEdge &edge0 = edges[0], &edge1 = edges[1];
+		size_t edgeIndex0 = 0, edgeIndex1 = 1;
+		bool qualifyingPairFound = false;
+		for (size_t first = 0; first < edges.size() && !qualifyingPairFound; first++)
+		{
+			for (size_t second = first + 1; second < edges.size(); second++)
+			{
+				float difference = fabs(edges[second].calcAngle() - edges[first].calcAngle());
+				if (difference > 180.0) difference -= 180.0;
+				if (difference > 65.0 && difference < 125.0)
+				{
+					edgeIndex0 = first;
+					edgeIndex1 = second;
+					qualifyingPairFound = true;
+					break;
+				}
+			}
+		}
+		LongEdge &edge0 = edges[edgeIndex0], &edge1 = edges[edgeIndex1];
 
-		// Take a look at the angles and decide if they're too far apart
+		// Prefer the longest pair satisfying the historical angle tolerance.
+		// Testing only the two longest segments can reject a valid corner when
+		// blur creates a slightly longer spurious segment.
 		ang0 = edge0.calcAngle();
 		ang1 = edge1.calcAngle();
-		float angDiff = ang1 - ang0;  angDiff = abs(angDiff);
+		float angDiff = fabs(ang1 - ang0);
 		if (angDiff > 180.0)  angDiff -= 180.0;
 		cornerAngleDifference = angDiff;
-		if (angDiff > 65 && angDiff < 125)
+		if (qualifyingPairFound)
 		{
 			// Store the edges
 			edgesValid = true;

@@ -38,6 +38,9 @@ PROJECTIVE_CONTROL_RESULTS ?= ../recovery/task-04/raw-evidence/00-control/task01
 PERSPECTIVE_SWEEP_MANIFEST ?= ../recovery/task-04/perspective-sweep/manifest.json
 DIAGNOSTICS_ACCEPTED_IMAGE ?= ../recovery/task-02/corpus/images/expanded_raw_zero.png
 DIAGNOSTICS_REJECTED_IMAGE ?= ../recovery/task-01/artifacts/detector-baseline/images/rotation_135deg.png
+CORNER_PAIR_IMAGE ?= ../recovery/task-01/artifacts/detector-baseline/images/blur_4sigma.png
+CORNER_PAIR_EXPECTED_BITS ?= 101111101010011110111010111001101100
+CORNER_PAIR_NEGATIVE ?= ../recovery/task-05/negative-corpus/images/negative_development_circle_square_20.png
 
 # Target to build everything
 all: $(EXECUTABLE)
@@ -130,6 +133,10 @@ test-diagnostics: $(EXECUTABLE)
 .PHONY: test-fallback-policy
 test-fallback-policy: $(EXECUTABLE)
 	python3 $(TEST_DIR)/test_fallback_policy.py $(EXECUTABLE) $(PROJECTIVE_MANIFEST) $(PERSPECTIVE_SWEEP_MANIFEST)
+
+.PHONY: test-corner-edge-pair
+test-corner-edge-pair: $(EXECUTABLE)
+	python3 $(TEST_DIR)/test_corner_edge_pair.py $(EXECUTABLE) $(CORNER_PAIR_IMAGE) $(CORNER_PAIR_EXPECTED_BITS) $(CORNER_PAIR_NEGATIVE)
 
 # Clean up generated files
 clean:
