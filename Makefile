@@ -5,6 +5,8 @@ BIN_DIR = bin
 INPUT_DIR = input
 OUTPUT_DIR = output
 SCRIPTS_DIR = scripts
+TEST_DIR = tests
+TEST_BIN_DIR = $(BIN_DIR)/tests
 
 # Compiler and flags
 CXX = g++
@@ -15,6 +17,8 @@ LDFLAGS = -L/opt/homebrew/lib -lgd  # Linker flags (for libraries)
 SRC_FILES = $(wildcard $(SRC_DIR)/*.cpp)
 OBJ_FILES = $(SRC_FILES:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 EXECUTABLE = $(BIN_DIR)/qyoo_detector
+CORE_OBJ_FILES = $(filter-out $(OBJ_DIR)/main.o,$(OBJ_FILES))
+ASPECT_TEST = $(TEST_BIN_DIR)/test_feature_aspect_ratio
 
 # Target to build everything
 all: $(EXECUTABLE)
@@ -28,6 +32,9 @@ $(BIN_DIR):
 	mkdir -p $(INPUT_DIR)
 	mkdir -p $(OUTPUT_DIR)
 
+$(TEST_BIN_DIR):
+	mkdir -p $(TEST_BIN_DIR)
+
 # Rule to build the executable
 $(EXECUTABLE): $(OBJ_FILES) | $(BIN_DIR)
 	$(CXX) $(OBJ_FILES) -o $@ $(LDFLAGS)
@@ -35,6 +42,13 @@ $(EXECUTABLE): $(OBJ_FILES) | $(BIN_DIR)
 # Rule to compile source files into object files
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(ASPECT_TEST): $(TEST_DIR)/test_feature_aspect_ratio.cpp $(CORE_OBJ_FILES) | $(TEST_BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(CORE_OBJ_FILES) -o $@ $(LDFLAGS)
+
+.PHONY: test-aspect
+test-aspect: $(ASPECT_TEST)
+	$(ASPECT_TEST)
 
 # Clean up generated files
 clean:

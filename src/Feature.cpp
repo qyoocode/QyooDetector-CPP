@@ -154,8 +154,8 @@ void Feature::checkSizeAndPosition(int imgSizeX,int imgSizeY)
 
 	// Only put up with an aspect ratio of 1:2 or so
 	if ((sizeX == 0 || sizeY == 0) ||
-		(sizeX > sizeY && (float)sizeX / (float)sizeY < MinAspectRatio) ||
-		(sizeY > sizeX && (float)sizeY / (float)sizeX < MinAspectRatio))
+		(sizeX > sizeY && (float)sizeY / (float)sizeX < MinAspectRatio) ||
+		(sizeY > sizeX && (float)sizeX / (float)sizeY < MinAspectRatio))
 	{
 		valid = false;
 		return;
