@@ -487,6 +487,12 @@ bool Feature::modelCheck(float nearDist2,float nearFrac)
 	return modelChecked;
 }
 
+bool Feature::affineFallbackGeometryQualified(double maximumAngleDeviationDegrees) const
+{
+	return edgesValid && std::isfinite(cornerAngleDifference) &&
+		fabs(cornerAngleDifference - 90.0) <= maximumAngleDeviationDegrees;
+}
+
 static ProjectivePoint nearestQyooOutlinePoint(const ProjectivePoint &point)
 {
 	auto nearestOnSegment = [](const ProjectivePoint &value,

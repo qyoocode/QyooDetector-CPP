@@ -32,12 +32,14 @@ static std::string diagnosticJsonString(const std::string &value) {
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <image_file> [--v|--verbose] "
-                  << "[--normalization affine|projective|shadow] [--diagnostics]" << std::endl;
+                  << "[--normalization affine|projective|shadow] "
+                  << "[--fallback-policy legacy-affine|reject|qualified] [--diagnostics]" << std::endl;
         return 1;
     }
 
     // Check if verbose flag is set
     NormalizationMode normalization = NormalizationProjective;
+    ProjectiveFallbackPolicy fallbackPolicy = QualifiedAffineFallback;
     bool diagnostics = false;
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
@@ -56,6 +58,19 @@ int main(int argc, char* argv[]) {
             else if (value == "shadow") normalization = NormalizationShadow;
             else {
                 std::cerr << "Error: unknown normalization mode: " << value << std::endl;
+                return 1;
+            }
+        } else if (arg == "--fallback-policy") {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: --fallback-policy requires legacy-affine, reject, or qualified." << std::endl;
+                return 1;
+            }
+            std::string value = argv[++i];
+            if (value == "legacy-affine") fallbackPolicy = LegacyAffineFallback;
+            else if (value == "reject") fallbackPolicy = RejectUnsupportedProjective;
+            else if (value == "qualified") fallbackPolicy = QualifiedAffineFallback;
+            else {
+                std::cerr << "Error: unknown fallback policy: " << value << std::endl;
                 return 1;
             }
         }
@@ -103,7 +118,7 @@ int main(int argc, char* argv[]) {
     // Try to find the qyoo in the image
     if (proc->findQyoo() > 0) {
         // Process the dots for the qyoo found
-        proc->findDots(theImage, normalization);
+        proc->findDots(theImage, normalization, fallbackPolicy);
 
         logVerbose("Feature processing completed successfully.");
 
@@ -112,7 +127,8 @@ int main(int argc, char* argv[]) {
     }
 
     if (diagnostics)
-        std::cout << "Diagnostics JSON = " << proc->diagnosticsJson(image_file, normalization) << std::endl;
+        std::cout << "Diagnostics JSON = "
+                  << proc->diagnosticsJson(image_file, normalization, fallbackPolicy) << std::endl;
 
     // Clean up
     gdImageDestroy(theImage); // Destroy the image to avoid memory leaks

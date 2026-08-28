@@ -28,6 +28,11 @@ const float PassRatio = .40;  // 40% coverage
 const float ClosedDist = 2.0f;  // Threshold distance to consider a feature closed
 const float DecimateDist = 0.85f;  // Tolerance for decimating points in a feature
 
+// Frozen exact fallbacks are within 0.40 degrees of orthogonal. The first
+// observed wrong sparse-perspective fallback is 2.92 degrees away. Two degrees
+// retains a measured safety margin and is independently regression-tested.
+const double MaximumQualifiedAffineAngleDeviationDegrees = 2.0;
+
 static bool refineProjectiveFromVisibleDots(RawImageGray8 *affinePatch,
                                             const ProjectiveTransform &normalizedToImage,
                                             Feature *feature)
@@ -165,14 +170,16 @@ static bool refineProjectiveFromVisibleDots(RawImageGray8 *affinePatch,
 // Initializes the dot processor with an image, a feature processor, and a feature.
 FeatureDotsProcessor::FeatureDotsProcessor(gdImagePtr inImage, FeatureProcessor *inFeatProc,
                                            Feature *inFeat, NormalizationMode inNormalization,
-                                           const std::string &inResultLabel)
+                                           const std::string &inResultLabel,
+                                           ProjectiveFallbackPolicy inFallbackPolicy)
 {
-    init(inImage, inFeatProc, inFeat, inNormalization, inResultLabel);
+    init(inImage, inFeatProc, inFeat, inNormalization, inResultLabel, inFallbackPolicy);
 }
 
 // Initialize the dot processor
 void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc, Feature *inFeat,
-                                NormalizationMode inNormalization, const std::string &inResultLabel)
+                                NormalizationMode inNormalization, const std::string &inResultLabel,
+                                ProjectiveFallbackPolicy inFallbackPolicy)
 {
     grayImg = nullptr;
     gaussImg = nullptr;
@@ -181,6 +188,7 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
     feat = inFeat;
     normalization = inNormalization;
     resultLabel = inResultLabel;
+    fallbackPolicy = inFallbackPolicy;
     normalizationAvailable = false;
 	if (normalization == NormalizationAffine)
 		feat->affineNormalizationAttempted = true;
@@ -263,6 +271,16 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
                            ", near fraction " +
                            std::to_string(feat->projectiveRefinedOutlineNearFraction));
                 logVerbose("Projective dot refinement rejected by accepted-outline validation; payload not sampled.");
+                feat->projectiveValid = false;
+                return;
+            }
+            bool allowFallback = fallbackPolicy == LegacyAffineFallback ||
+                (fallbackPolicy == QualifiedAffineFallback &&
+                 feat->affineFallbackGeometryQualified(MaximumQualifiedAffineAngleDeviationDegrees));
+            if (!allowFallback)
+            {
+                feat->projectiveAffineFallbackRejected = true;
+                logVerbose("Projective dot refinement unavailable; affine fallback rejected by policy.");
                 feat->projectiveValid = false;
                 return;
             }
@@ -576,7 +594,8 @@ int FeatureProcessor::findQyoo()
 }
 
 // Detect dots in the valid Qyoo features
-void FeatureProcessor::findDots(gdImagePtr inImage, NormalizationMode normalization)
+void FeatureProcessor::findDots(gdImagePtr inImage, NormalizationMode normalization,
+                                ProjectiveFallbackPolicy fallbackPolicy)
 {
     for (auto &feat : feats)
     {
@@ -585,17 +604,17 @@ void FeatureProcessor::findDots(gdImagePtr inImage, NormalizationMode normalizat
             if (normalization == NormalizationShadow)
             {
                 auto *affineDots = new FeatureDotsProcessor(inImage, this, &feat,
-                                                            NormalizationAffine, "");
+                                                            NormalizationAffine, "", fallbackPolicy);
                 affineDots->findDotsGray();
                 featureDots.push_back(affineDots);
                 auto *projectiveDots = new FeatureDotsProcessor(inImage, this, &feat,
-                                                                NormalizationProjective, "Projective");
+                                                                NormalizationProjective, "Projective", fallbackPolicy);
                 projectiveDots->findDotsGray();
                 featureDots.push_back(projectiveDots);
             }
             else
             {
-                auto *featDots = new FeatureDotsProcessor(inImage, this, &feat, normalization, "");
+                auto *featDots = new FeatureDotsProcessor(inImage, this, &feat, normalization, "", fallbackPolicy);
                 featDots->findDotsGray();
                 featureDots.push_back(featDots);
             }
@@ -610,6 +629,17 @@ static const char *normalizationModeCode(NormalizationMode normalization)
         case NormalizationAffine: return "affine";
         case NormalizationProjective: return "projective";
         case NormalizationShadow: return "shadow";
+    }
+    return "unknown";
+}
+
+static const char *fallbackPolicyCode(ProjectiveFallbackPolicy policy)
+{
+    switch (policy)
+    {
+        case LegacyAffineFallback: return "legacy-affine";
+        case RejectUnsupportedProjective: return "reject";
+        case QualifiedAffineFallback: return "qualified";
     }
     return "unknown";
 }
@@ -649,7 +679,8 @@ static const char *jsonBoolean(bool value)
 }
 
 std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
-                                              NormalizationMode normalization) const
+                                              NormalizationMode normalization,
+                                              ProjectiveFallbackPolicy fallbackPolicy) const
 {
     const FeatureRejectionReason reasons[] = {
         FeatureNotRejected,
@@ -672,6 +703,7 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
     int affineAttempted = 0;
     int projectiveAttempted = 0;
     int affineFallback = 0;
+    int affineFallbackRejected = 0;
     int normalizationAvailable = 0;
     int payloadExtracted = 0;
     for (const Feature &feature : feats)
@@ -685,6 +717,7 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
         affineAttempted += feature.affineNormalizationAttempted;
         projectiveAttempted += feature.projectiveNormalizationAttempted;
         affineFallback += feature.projectiveAffineFallbackUsed;
+        affineFallbackRejected += feature.projectiveAffineFallbackRejected;
         normalizationAvailable += feature.affineNormalizationAvailable ||
                                   feature.projectiveNormalizationAvailable;
         payloadExtracted += feature.affinePayloadExtracted || feature.projectivePayloadExtracted;
@@ -698,6 +731,7 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
     output << ",\"image_size\":{\"width\":" << grayImg->getSizeX()
            << ",\"height\":" << grayImg->getSizeY() << "}";
     output << ",\"normalization_requested\":" << jsonString(normalizationModeCode(normalization));
+    output << ",\"fallback_policy_requested\":" << jsonString(fallbackPolicyCode(fallbackPolicy));
     output << ",\"stages\":{";
     output << "\"raw_feature_count\":" << feats.size();
     output << ",\"size_pass_count\":" << sizePassed;
@@ -709,6 +743,7 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
     output << ",\"affine_normalization_attempted_count\":" << affineAttempted;
     output << ",\"projective_normalization_attempted_count\":" << projectiveAttempted;
     output << ",\"affine_fallback_count\":" << affineFallback;
+    output << ",\"affine_fallback_rejected_count\":" << affineFallbackRejected;
     output << ",\"normalization_available_count\":" << normalizationAvailable;
     output << ",\"payload_extracted_count\":" << payloadExtracted << "}";
     output << ",\"rejection_reason_counts\":{";
@@ -752,6 +787,7 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
         output << ",\"projective_dot_correspondence_count\":" << feature.projectiveDotCorrespondenceCount;
         output << ",\"projective_dot_refined\":" << jsonBoolean(feature.projectiveDotRefined);
         output << ",\"projective_affine_fallback_used\":" << jsonBoolean(feature.projectiveAffineFallbackUsed);
+        output << ",\"projective_affine_fallback_rejected\":" << jsonBoolean(feature.projectiveAffineFallbackRejected);
         output << ",\"affine_normalization_attempted\":" << jsonBoolean(feature.affineNormalizationAttempted);
         output << ",\"projective_normalization_attempted\":" << jsonBoolean(feature.projectiveNormalizationAttempted);
         output << ",\"normalization_available\":"

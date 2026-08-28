@@ -73,6 +73,7 @@ public:
 		projectiveNormalizationAttempted = false;
 		projectiveNormalizationAvailable = false;
 		projectiveAffineFallbackUsed = false;
+		projectiveAffineFallbackRejected = false;
 		projectivePayloadExtracted = false;
 	};
 	Feature(const Feature &that) { *this = that; }
@@ -108,6 +109,7 @@ public:
 	// Fit the accepted outline to the existing Qyoo model without changing
 	// candidate acceptance. The historical affine transform is the initializer.
 	bool estimateProjectiveTransform(int iterations = 12);
+	bool affineFallbackGeometryQualified(double maximumAngleDeviationDegrees) const;
 	bool projectiveOutlineError(const ProjectiveTransform &transform,
 	                           double &rmsError, double &maxError) const;
 	double projectiveOutlineNearFraction(const ProjectiveTransform &transform,
@@ -173,6 +175,7 @@ public:
 	bool projectiveNormalizationAttempted;
 	bool projectiveNormalizationAvailable;
 	bool projectiveAffineFallbackUsed;
+	bool projectiveAffineFallbackRejected;
 	bool projectivePayloadExtracted;
 	
 	// The raw bits for the dots, if they've been read

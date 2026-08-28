@@ -35,6 +35,7 @@ IMAGE_INPUT_JPG ?= ../recovery/task-03/focused-tests/image-input/expanded_raw_ze
 IMAGE_INPUT_JPEG ?= ../recovery/task-03/focused-tests/image-input/expanded_raw_zero.jpeg
 PROJECTIVE_MANIFEST ?= ../recovery/task-02/corpus/corpus_manifest.json
 PROJECTIVE_CONTROL_RESULTS ?= ../recovery/task-04/raw-evidence/00-control/task01_frozen_55/per_case_results.jsonl
+PERSPECTIVE_SWEEP_MANIFEST ?= ../recovery/task-04/perspective-sweep/manifest.json
 DIAGNOSTICS_ACCEPTED_IMAGE ?= ../recovery/task-02/corpus/images/expanded_raw_zero.png
 DIAGNOSTICS_REJECTED_IMAGE ?= ../recovery/task-01/artifacts/detector-baseline/images/rotation_135deg.png
 
@@ -125,6 +126,10 @@ test-projective-cli: $(EXECUTABLE)
 .PHONY: test-diagnostics
 test-diagnostics: $(EXECUTABLE)
 	python3 $(TEST_DIR)/test_rejection_diagnostics.py $(EXECUTABLE) $(DIAGNOSTICS_ACCEPTED_IMAGE) $(DIAGNOSTICS_REJECTED_IMAGE)
+
+.PHONY: test-fallback-policy
+test-fallback-policy: $(EXECUTABLE)
+	python3 $(TEST_DIR)/test_fallback_policy.py $(EXECUTABLE) $(PROJECTIVE_MANIFEST) $(PERSPECTIVE_SWEEP_MANIFEST)
 
 # Clean up generated files
 clean:

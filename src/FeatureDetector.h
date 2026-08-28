@@ -27,6 +27,13 @@ enum NormalizationMode
   NormalizationShadow
 };
 
+enum ProjectiveFallbackPolicy
+{
+  LegacyAffineFallback,
+  RejectUnsupportedProjective,
+  QualifiedAffineFallback
+};
+
 /*
  * FeatureDotsProcessor
  * This class handles the detection and processing of dots for a single feature.
@@ -38,7 +45,8 @@ class FeatureDotsProcessor
   // Constructor: Initializes the processor with the given image, feature processor, and feature.
   FeatureDotsProcessor(gdImagePtr inImage, FeatureProcessor *featProc, Feature *feat,
                        NormalizationMode normalization = NormalizationAffine,
-                       const std::string &resultLabel = "");
+                       const std::string &resultLabel = "",
+                       ProjectiveFallbackPolicy fallbackPolicy = QualifiedAffineFallback);
 
   // Destructor: Cleans up resources used by the processor.
   ~FeatureDotsProcessor();
@@ -50,7 +58,8 @@ class FeatureDotsProcessor
 protected:
   // Initialize the processor with the given image, feature processor, and feature.
   void init(gdImagePtr inImage, FeatureProcessor *featProc, Feature *feat,
-            NormalizationMode normalization, const std::string &resultLabel);
+            NormalizationMode normalization, const std::string &resultLabel,
+            ProjectiveFallbackPolicy fallbackPolicy);
 
  public:
   RawImageGray8 *grayImg;   // Grayscale version of the image
@@ -67,6 +76,7 @@ protected:
   NormalizationMode normalization;
   std::string resultLabel;
   bool normalizationAvailable;
+  ProjectiveFallbackPolicy fallbackPolicy;
 };
 
 /*
@@ -95,11 +105,13 @@ class FeatureProcessor
   int findQyoo();
 
   // Find and process the dots in the valid Qyoo features.
-  void findDots(gdImagePtr inImage, NormalizationMode normalization = NormalizationProjective);
+  void findDots(gdImagePtr inImage, NormalizationMode normalization = NormalizationProjective,
+                ProjectiveFallbackPolicy fallbackPolicy = QualifiedAffineFallback);
 
   // Optional decision-neutral diagnostics for test/recovery harnesses.
   std::string diagnosticsJson(const std::string &imageId,
-                              NormalizationMode normalization) const;
+                              NormalizationMode normalization,
+                              ProjectiveFallbackPolicy fallbackPolicy) const;
 
  public:
   ConvolutionFilterInt *gaussFilter;  // Gaussian filter to reduce noise in the image
