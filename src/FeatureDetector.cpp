@@ -86,11 +86,16 @@ static int calcAvgPixel(RawImageGray8 *img, int px, int py, ConvolutionFilterInt
     std::vector<int> results(radFilter->getSize() * radFilter->getSize());
     radFilter->processPixel(img, px, py, &results[0]);
 
-    float val = 0.0;
-    for (int result : results)
+    int val = 0;
+    int validSamples = 0;
+    for (int result : results) {
+        if (result < 0)
+            continue;
         val += result;
+        validSamples++;
+    }
 
-    return val / radFilter->getFact();
+    return validSamples > 0 ? val / validSamples : 0;
 }
 
 // Constants used for dot detection
