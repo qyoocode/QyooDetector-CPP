@@ -95,7 +95,7 @@ class FeatureProcessor
   int findQyoo();
 
   // Find and process the dots in the valid Qyoo features.
-  void findDots(gdImagePtr inImage, NormalizationMode normalization = NormalizationAffine);
+  void findDots(gdImagePtr inImage, NormalizationMode normalization = NormalizationProjective);
 
  public:
   ConvolutionFilterInt *gaussFilter;  // Gaussian filter to reduce noise in the image
