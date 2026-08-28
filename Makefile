@@ -23,6 +23,7 @@ CONTRAST_TEST = $(TEST_BIN_DIR)/test_raw_image_contrast
 SENTINEL_TEST = $(TEST_BIN_DIR)/test_background_average
 RESOURCE_TEST = $(TEST_BIN_DIR)/test_detector_resource_stress
 IMAGE_INPUT_TEST = $(TEST_BIN_DIR)/test_image_input
+PROJECTIVE_TRANSFORM_TEST = $(TEST_BIN_DIR)/test_projective_transform
 RESOURCE_STRESS_IMAGE ?= ../recovery/task-02/corpus/images/expanded_raw_zero.png
 RESOURCE_STRESS_ITERATIONS ?= 50
 RESOURCE_STRESS_LIMIT_BYTES ?= 67108864
@@ -68,6 +69,9 @@ $(RESOURCE_TEST): $(TEST_DIR)/test_detector_resource_stress.cpp $(CORE_OBJ_FILES
 $(IMAGE_INPUT_TEST): $(TEST_DIR)/test_image_input.cpp $(OBJ_DIR)/ImageLoader.o | $(TEST_BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< $(OBJ_DIR)/ImageLoader.o -o $@ $(LDFLAGS)
 
+$(PROJECTIVE_TRANSFORM_TEST): $(TEST_DIR)/test_projective_transform.cpp $(OBJ_DIR)/Geometry.o | $(TEST_BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(OBJ_DIR)/Geometry.o -o $@ $(LDFLAGS)
+
 .PHONY: test-aspect
 test-aspect: $(ASPECT_TEST)
 	$(ASPECT_TEST)
@@ -88,6 +92,10 @@ test-resource-stress: $(RESOURCE_TEST)
 test-image-input: $(IMAGE_INPUT_TEST) $(EXECUTABLE)
 	$(IMAGE_INPUT_TEST) $(IMAGE_INPUT_PNG) $(IMAGE_INPUT_JPG) $(IMAGE_INPUT_JPEG)
 	python3 $(TEST_DIR)/test_cli_image_input.py $(EXECUTABLE) $(IMAGE_INPUT_PNG) $(IMAGE_INPUT_JPG) $(IMAGE_INPUT_JPEG)
+
+.PHONY: test-projective-transform
+test-projective-transform: $(PROJECTIVE_TRANSFORM_TEST)
+	$(PROJECTIVE_TRANSFORM_TEST)
 
 # Clean up generated files
 clean:

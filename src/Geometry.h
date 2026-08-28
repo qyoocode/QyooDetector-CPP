@@ -11,6 +11,7 @@
  */
 
 #include <math.h>
+#include <vector>
 
 // 3D Point Class
 // Simple representation of a 3D point with x, y, and z coordinates.
@@ -182,3 +183,40 @@ public:
 // Computes the angle in degrees relative to the positive x-axis, considering
 // which quadrant the point (gx, gy) falls into.
 extern float properAtan(int gx, int gy);
+
+struct ProjectivePoint
+{
+    ProjectivePoint() : x(0.0), y(0.0) { }
+    ProjectivePoint(double inX, double inY) : x(inX), y(inY) { }
+    double x, y;
+};
+
+/* A finite 3x3 planar projective mapping. Points are column vectors and
+   map() performs the required homogeneous divide. */
+class ProjectiveTransform
+{
+public:
+    ProjectiveTransform();
+    ProjectiveTransform(double m00, double m01, double m02,
+                        double m10, double m11, double m12,
+                        double m20, double m21, double m22);
+
+    static bool fromCorrespondences(const std::vector<ProjectivePoint> &source,
+                                    const std::vector<ProjectivePoint> &destination,
+                                    ProjectiveTransform &result,
+                                    double tolerance = 1e-10);
+    static bool fromFourPointCorrespondences(const ProjectivePoint source[4],
+                                             const ProjectivePoint destination[4],
+                                             ProjectiveTransform &result,
+                                             double tolerance = 1e-10);
+
+    bool map(const ProjectivePoint &source, ProjectivePoint &destination,
+             double tolerance = 1e-10) const;
+    bool inverse(ProjectiveTransform &result, double tolerance = 1e-10) const;
+    bool isFinite() const;
+    double at(int row, int column) const { return values[row][column]; }
+    ProjectiveTransform operator*(const ProjectiveTransform &that) const;
+
+private:
+    double values[3][3];
+};
