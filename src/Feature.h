@@ -91,6 +91,9 @@ public:
 	int projectiveCorrespondenceCount;
 	double projectiveRmsError;
 	double projectiveMaxError;
+	bool projectiveDotRefined;
+	int projectiveDotCorrespondenceCount;
+	double projectiveDotRmsError;
 	
 	// The raw bits for the dots, if they've been read
 	std::vector<unsigned char> dotBits;

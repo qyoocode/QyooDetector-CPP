@@ -475,6 +475,9 @@ bool Feature::estimateProjectiveTransform(int iterations)
 	projectiveCorrespondenceCount = 0;
 	projectiveRmsError = 0.0;
 	projectiveMaxError = 0.0;
+	projectiveDotRefined = false;
+	projectiveDotCorrespondenceCount = 0;
+	projectiveDotRmsError = 0.0;
 	if (!valid || origPoints.size() < 4 || iterations < 1)
 		return false;
 

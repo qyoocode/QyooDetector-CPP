@@ -19,26 +19,156 @@
 
 // Pixels per dot for detection
 const int PixelsPerDot = 11;
+const int RadianceDistMatch = 60;
+const float PassRatio = .40;  // 40% coverage
 
 // Define constants for closing distance and decimation tolerance
 const float ClosedDist = 2.0f;  // Threshold distance to consider a feature closed
 const float DecimateDist = 0.85f;  // Tolerance for decimating points in a feature
 
+static bool refineProjectiveFromVisibleDots(RawImageGray8 *affinePatch,
+                                            const ProjectiveTransform &normalizedToImage,
+                                            Feature *feature)
+{
+    const int radius = PixelsPerDot / 2;
+    std::vector<ProjectivePoint> modelPoints;
+    std::vector<ProjectivePoint> imagePoints;
+    QyooModel *model = QyooModel::getQyooModel();
+    int backgroundTotal = 0;
+    int diskCount = 0;
+    for (int dy = -radius; dy <= radius; dy++)
+        for (int dx = -radius; dx <= radius; dx++)
+            if (dx * dx + dy * dy < radius * radius)
+            {
+                backgroundTotal += affinePatch->getPixel(radius + dx, radius + dy);
+                diskCount++;
+            }
+    int background = backgroundTotal / diskCount;
+    bool backgroundIsWhite = background >= 128;
+    int width = affinePatch->getSizeX();
+    int height = affinePatch->getSizeY();
+    std::vector<unsigned char> mask(width * height, 0);
+    for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
+        {
+            int value = affinePatch->getPixel(x, y);
+            int contrast = abs(background - value);
+            bool oppositeSide = backgroundIsWhite ? value < 160 : value > 96;
+            mask[y * width + x] = contrast > RadianceDistMatch && oppositeSide;
+        }
+
+    std::vector<unsigned char> visited(width * height, 0);
+    bool assigned[QYOOSIZE][QYOOSIZE] = {{false}};
+    const int minimumArea = static_cast<int>(ceil(PassRatio * diskCount));
+    const int maximumArea = PixelsPerDot * PixelsPerDot;
+    const int neighbors[8][2] = {
+        {-1, -1}, {0, -1}, {1, -1}, {-1, 0},
+        {1, 0}, {-1, 1}, {0, 1}, {1, 1}
+    };
+    for (int startY = 0; startY < height; startY++)
+        for (int startX = 0; startX < width; startX++)
+        {
+            int startIndex = startY * width + startX;
+            if (!mask[startIndex] || visited[startIndex])
+                continue;
+            std::vector<int> pending(1, startIndex);
+            visited[startIndex] = 1;
+            int area = 0;
+            double weightedX = 0.0;
+            double weightedY = 0.0;
+            double totalWeight = 0.0;
+            for (size_t next = 0; next < pending.size(); next++)
+            {
+                int index = pending[next];
+                int x = index % width;
+                int y = index / width;
+                int weight = abs(background - affinePatch->getPixel(x, y));
+                area++;
+                weightedX += x * weight;
+                weightedY += y * weight;
+                totalWeight += weight;
+                for (const auto &neighbor : neighbors)
+                {
+                    int otherX = x + neighbor[0];
+                    int otherY = y + neighbor[1];
+                    if (otherX < 0 || otherX >= width || otherY < 0 || otherY >= height)
+                        continue;
+                    int otherIndex = otherY * width + otherX;
+                    if (mask[otherIndex] && !visited[otherIndex])
+                    {
+                        visited[otherIndex] = 1;
+                        pending.push_back(otherIndex);
+                    }
+                }
+            }
+            if (area < minimumArea || area > maximumArea || totalWeight == 0.0)
+                continue;
+            double centerX = weightedX / totalWeight;
+            double centerY = weightedY / totalWeight;
+            double firstCenter = PixelsPerDot + PixelsPerDot / 2;
+            int position = static_cast<int>(round((centerX - firstCenter) / PixelsPerDot));
+            int row = static_cast<int>(round((centerY - firstCenter) / PixelsPerDot));
+            if (position < 0 || position >= model->numPos() || row < 0 || row >= model->numRows() ||
+                assigned[row][position])
+                continue;
+            double expectedX = PixelsPerDot * (position + 1) + PixelsPerDot / 2.0;
+            double expectedY = PixelsPerDot * (row + 1) + PixelsPerDot / 2.0;
+            if (hypot(centerX - expectedX, centerY - expectedY) > PixelsPerDot / 2.0)
+                continue;
+            assigned[row][position] = true;
+            ProjectivePoint observed;
+            if (!normalizedToImage.map(ProjectivePoint(centerX / width, centerY / height), observed))
+                return false;
+            SimplePoint2D modelPoint = model->dotLocation(position, row);
+            modelPoints.push_back(ProjectivePoint(modelPoint.x, modelPoint.y));
+            imagePoints.push_back(observed);
+        }
+
+    // The accepted silhouette supplies localization; isolated payload circles
+    // supply the missing interior correspondences without assuming bit values.
+    feature->projectiveDotCorrespondenceCount = static_cast<int>(modelPoints.size());
+    if (modelPoints.size() < 4)
+        return false;
+    ProjectiveTransform fitted;
+    if (!ProjectiveTransform::fromCorrespondences(modelPoints, imagePoints, fitted))
+        return false;
+    double squaredError = 0.0;
+    for (size_t index = 0; index < modelPoints.size(); index++)
+    {
+        ProjectivePoint projected;
+        if (!fitted.map(modelPoints[index], projected))
+            return false;
+        double dx = projected.x - imagePoints[index].x;
+        double dy = projected.y - imagePoints[index].y;
+        squaredError += dx * dx + dy * dy;
+    }
+    feature->projectiveMat = fitted;
+    feature->projectiveDotRmsError = sqrt(squaredError / modelPoints.size());
+    feature->projectiveDotRefined = std::isfinite(feature->projectiveDotRmsError);
+    return feature->projectiveDotRefined;
+}
+
 // FeatureDotsProcessor constructor
 // Initializes the dot processor with an image, a feature processor, and a feature.
-FeatureDotsProcessor::FeatureDotsProcessor(gdImagePtr inImage, FeatureProcessor *inFeatProc, Feature *inFeat)
+FeatureDotsProcessor::FeatureDotsProcessor(gdImagePtr inImage, FeatureProcessor *inFeatProc,
+                                           Feature *inFeat, NormalizationMode inNormalization,
+                                           const std::string &inResultLabel)
 {
-    init(inImage, inFeatProc, inFeat);
+    init(inImage, inFeatProc, inFeat, inNormalization, inResultLabel);
 }
 
 // Initialize the dot processor
-void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc, Feature *inFeat)
+void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc, Feature *inFeat,
+                                NormalizationMode inNormalization, const std::string &inResultLabel)
 {
     grayImg = nullptr;
     gaussImg = nullptr;
     gradImg = nullptr;
     featProc = inFeatProc;
     feat = inFeat;
+    normalization = inNormalization;
+    resultLabel = inResultLabel;
+    normalizationAvailable = false;
 
     QyooModel *qyooModel = QyooModel::getQyooModel();
     float imgWidth = gdImageSX(inImage);
@@ -48,27 +178,77 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
     int sizeX = PixelsPerDot * (qyooModel->numRows() + 2);
     int sizeY = PixelsPerDot * (qyooModel->numPos() + 2);
 
-    // Apply transformations to convert the image to Qyoo space
+    // Apply transformations to convert normalized dot-crop coordinates to the source image.
     float scaleX = imgWidth / feat->imgSizeX;
     float scaleY = imgHeight / feat->imgSizeY;
-    QyooMatrix scaleMat(scaleX, 0.0, 0.0, 0.0, scaleY, 0.0, 0.0, 0.0, 1.0);
-    QyooMatrix forMat = scaleMat * feat->mat;
 
     // Add a margin of space around the dots
     SimplePoint2D ll, ur;
     qyooModel->dotBounds(ll, ur, true);
-    QyooMatrix transMat(1.0, 0.0, ll.x, 0.0, 1.0, ll.y, 0.0, 0.0, 1.0);
-    QyooMatrix scaleMat2(ur.x - ll.x, 0.0, 0.0, 0.0, ur.y - ll.y, 0.0, 0.0, 0.0, 1.0);
-    forMat = forMat * transMat * scaleMat2;
-
-    // Inverse the transformation matrix to map back to Qyoo space
-    QyooMatrix mat = forMat;
-    mat.inverse();
 
     // Convert the image to grayscale and apply contrast
     grayImg = new RawImageGray8(sizeX, sizeY);
-    grayImg->copyFromGDImage(inImage, mat);
+    if (normalization == NormalizationProjective)
+    {
+        if (!feat->projectiveValid)
+            return;
+        ProjectiveTransform inputScale(scaleX, 0.0, 0.0,
+                                       0.0, scaleY, 0.0,
+                                       0.0, 0.0, 1.0);
+        ProjectiveTransform dotTranslation(1.0, 0.0, ll.x,
+                                           0.0, 1.0, ll.y,
+                                           0.0, 0.0, 1.0);
+        ProjectiveTransform dotScale(ur.x - ll.x, 0.0, 0.0,
+                                    0.0, ur.y - ll.y, 0.0,
+                                    0.0, 0.0, 1.0);
+        ProjectiveTransform affineFeature(
+            feat->mat(0, 0), feat->mat(0, 1), feat->mat(0, 2),
+            feat->mat(1, 0), feat->mat(1, 1), feat->mat(1, 2),
+            feat->mat(2, 0), feat->mat(2, 1), feat->mat(2, 2));
+        ProjectiveTransform affineNormalizedToImage = inputScale * affineFeature * dotTranslation * dotScale;
+        RawImageGray8 affinePilot(sizeX, sizeY);
+        if (!affinePilot.copyFromGDImageProjective(inImage, affineNormalizedToImage))
+            return;
+        affinePilot.runContrast();
+        if (refineProjectiveFromVisibleDots(&affinePilot, affineNormalizedToImage, feat))
+        {
+            logVerbose("Projective dot refinement: " +
+                       std::to_string(feat->projectiveDotCorrespondenceCount) +
+                       " centers, RMS " + std::to_string(feat->projectiveDotRmsError));
+            logVerbose("Projective dot matrix: [" +
+                       std::to_string(feat->projectiveMat.at(0, 0)) + "," +
+                       std::to_string(feat->projectiveMat.at(0, 1)) + "," +
+                       std::to_string(feat->projectiveMat.at(0, 2)) + ";" +
+                       std::to_string(feat->projectiveMat.at(1, 0)) + "," +
+                       std::to_string(feat->projectiveMat.at(1, 1)) + "," +
+                       std::to_string(feat->projectiveMat.at(1, 2)) + ";" +
+                       std::to_string(feat->projectiveMat.at(2, 0)) + "," +
+                       std::to_string(feat->projectiveMat.at(2, 1)) + "," +
+                       std::to_string(feat->projectiveMat.at(2, 2)) + "]");
+        }
+        else
+        {
+            logVerbose("Projective dot refinement unavailable; using outline estimate.");
+        }
+        ProjectiveTransform normalizedToImage = inputScale * feat->projectiveMat * dotTranslation * dotScale;
+        if (!grayImg->copyFromGDImageProjective(inImage, normalizedToImage))
+            return;
+    }
+    else
+    {
+        QyooMatrix inputScale(scaleX, 0.0, 0.0, 0.0, scaleY, 0.0, 0.0, 0.0, 1.0);
+        QyooMatrix forMat = inputScale * feat->mat;
+        QyooMatrix dotTranslation(1.0, 0.0, ll.x, 0.0, 1.0, ll.y, 0.0, 0.0, 1.0);
+        QyooMatrix dotScale(ur.x - ll.x, 0.0, 0.0,
+                            0.0, ur.y - ll.y, 0.0,
+                            0.0, 0.0, 1.0);
+        forMat = forMat * dotTranslation * dotScale;
+        QyooMatrix inverseForMat = forMat;
+        inverseForMat.inverse();
+        grayImg->copyFromGDImage(inImage, inverseForMat);
+    }
     grayImg->runContrast();
+    normalizationAvailable = true;
 }
 
 // Destructor for the dot processor
@@ -99,9 +279,6 @@ static int calcAvgPixel(RawImageGray8 *img, int px, int py, ConvolutionFilterInt
 }
 
 // Constants used for dot detection
-const int RadianceDistMatch = 60;
-const float PassRatio = .40;  // 40% coverage
-
 // Check if an area contains a dot by comparing the radiance of pixels
 static bool isAdot(RawImageGray8 *img,int px,int py,int pixelsInDot,ConvolutionFilterInt *radFilter,int backColor)
 {
@@ -154,6 +331,12 @@ static std::string dec2bin(int intDec)
 
 // Detect dots in a grayscale image and mark their locations
 void FeatureDotsProcessor::findDotsGray() {
+    if (!normalizationAvailable)
+    {
+        logVerbose((resultLabel.empty() ? std::string("Projective") : resultLabel) +
+                   " normalization unavailable; payload not sampled.");
+        return;
+    }
     QyooModel *qyooModel = QyooModel::getQyooModel();
     ConvolutionFilterInt *radFilter = MakeRadiusFilter(PixelsPerDot, PixelsPerDot / 2);
 
@@ -227,14 +410,16 @@ void FeatureDotsProcessor::findDotsGray() {
     if (qyooBits.size() > 64) {
         std::cerr << "Error: qyooBits exceeds 64 bits, cannot convert to unsigned long long." << std::endl;
     } else {
-        std::cout << "Binary = " << qyooBits << std::endl;
+        std::string prefix = resultLabel.empty() ? "" : resultLabel + " ";
+        std::cout << prefix << "Binary = " << qyooBits << std::endl;
 
         feat->dotDecStr = std::to_string(std::stoull(qyooBits, nullptr, 2));  // Convert binary string to decimal
-        std::cout << "Qyoo value = " << feat->dotDecStr << std::endl;
+        std::cout << prefix << "Qyoo value = " << feat->dotDecStr << std::endl;
     }
 
     // Save the image with the dots circled and x notated to see where pattern is detected
-    std::string outputFileName = "output/" + feat->dotDecStr + ".png";
+    std::string outputFilePrefix = resultLabel.empty() ? "" : resultLabel + "_";
+    std::string outputFileName = "output/" + outputFilePrefix + feat->dotDecStr + ".png";
     FILE *outputFile = fopen(outputFileName.c_str(), "wb");
     if (outputFile) {
         gdImagePng(outImg, outputFile); // Save PNG image using gdImagePng
@@ -342,15 +527,29 @@ int FeatureProcessor::findQyoo()
 }
 
 // Detect dots in the valid Qyoo features
-void FeatureProcessor::findDots(gdImagePtr inImage)
+void FeatureProcessor::findDots(gdImagePtr inImage, NormalizationMode normalization)
 {
     for (auto &feat : feats)
     {
         if (feat.valid)
         {
-            auto *featDots = new FeatureDotsProcessor(inImage, this, &feat);
-            featDots->findDotsGray();
-            featureDots.push_back(featDots);
+            if (normalization == NormalizationShadow)
+            {
+                auto *affineDots = new FeatureDotsProcessor(inImage, this, &feat,
+                                                            NormalizationAffine, "");
+                affineDots->findDotsGray();
+                featureDots.push_back(affineDots);
+                auto *projectiveDots = new FeatureDotsProcessor(inImage, this, &feat,
+                                                                NormalizationProjective, "Projective");
+                projectiveDots->findDotsGray();
+                featureDots.push_back(projectiveDots);
+            }
+            else
+            {
+                auto *featDots = new FeatureDotsProcessor(inImage, this, &feat, normalization, "");
+                featDots->findDotsGray();
+                featureDots.push_back(featDots);
+            }
         }
     }
 }

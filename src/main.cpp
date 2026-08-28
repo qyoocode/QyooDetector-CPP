@@ -16,15 +16,30 @@ void logVerbose(const std::string& message) {
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <image_file> [--v|--verbose]" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <image_file> [--v|--verbose] "
+                  << "[--normalization affine|projective|shadow]" << std::endl;
         return 1;
     }
 
     // Check if verbose flag is set
+    NormalizationMode normalization = NormalizationAffine;
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
         if (arg == "--v" || arg == "--verbose") {
             verbose = true;  // Enable verbose logging
+        } else if (arg == "--normalization") {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: --normalization requires affine, projective, or shadow." << std::endl;
+                return 1;
+            }
+            std::string value = argv[++i];
+            if (value == "affine") normalization = NormalizationAffine;
+            else if (value == "projective") normalization = NormalizationProjective;
+            else if (value == "shadow") normalization = NormalizationShadow;
+            else {
+                std::cerr << "Error: unknown normalization mode: " << value << std::endl;
+                return 1;
+            }
         }
     }
 
@@ -64,7 +79,7 @@ int main(int argc, char* argv[]) {
     // Try to find the qyoo in the image
     if (proc->findQyoo() > 0) {
         // Process the dots for the qyoo found
-        proc->findDots(theImage);
+        proc->findDots(theImage, normalization);
 
         logVerbose("Feature processing completed successfully.");
 

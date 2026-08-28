@@ -8,6 +8,7 @@
  */
 
 #include "RawImage.h"
+#include "Geometry.h"
 
 /**
  * Save a GD image as a PNG file.
@@ -131,6 +132,29 @@ void RawImageGray8::copyFromGDImage(gdImagePtr inImage, QyooMatrix &mat)
             int pixVal = gdImageGetPixel(inImage, destX, destY);
             getPixel(ix, iy) = gdImageRed(inImage, pixVal);
         }
+}
+
+bool RawImageGray8::copyFromGDImageProjective(gdImagePtr inImage,
+                                             const ProjectiveTransform &normalizedToSource)
+{
+    for (unsigned int ix = 0; ix < sizeX; ix++)
+        for (unsigned int iy = 0; iy < sizeY; iy++)
+        {
+            ProjectivePoint source;
+            if (!normalizedToSource.map(ProjectivePoint(
+                    static_cast<double>(ix) / sizeX,
+                    static_cast<double>(iy) / sizeY), source))
+                return false;
+            int sourceX = static_cast<int>(source.x + 0.5);
+            int sourceY = static_cast<int>(source.y + 0.5);
+            if (sourceX < 0) sourceX = 0;
+            if (sourceX >= gdImageSX(inImage)) sourceX = gdImageSX(inImage) - 1;
+            if (sourceY < 0) sourceY = 0;
+            if (sourceY >= gdImageSY(inImage)) sourceY = gdImageSY(inImage) - 1;
+            int pixel = gdImageGetPixel(inImage, sourceX, sourceY);
+            getPixel(ix, iy) = gdImageRed(inImage, pixel);
+        }
+    return true;
 }
 
 /**

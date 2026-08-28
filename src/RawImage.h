@@ -18,6 +18,7 @@
 
 // Typedef for a 3x3 matrix using row_basis layout for transformations.
 typedef cml::matrix<double, cml::fixed<3, 3>, cml::row_basis> QyooMatrix;
+class ProjectiveTransform;
 
 /**
  * Debug routine to save an image as a PNG file.
@@ -105,6 +106,9 @@ public:
      * @param mat The transformation matrix to apply.
      */
     void copyFromGDImage(gdImagePtr inImage, QyooMatrix &mat);
+
+    /** Copy using an explicit normalized-output-to-source projective mapping. */
+    bool copyFromGDImageProjective(gdImagePtr inImage, const ProjectiveTransform &normalizedToSource);
 
     /**
      * Apply a simple contrast scaling operation to the image.

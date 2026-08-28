@@ -20,6 +20,13 @@ class FeatureProcessor;
 // Number of rows/columns in a Qyoo
 #define QYOOSIZE 6
 
+enum NormalizationMode
+{
+  NormalizationAffine,
+  NormalizationProjective,
+  NormalizationShadow
+};
+
 /*
  * FeatureDotsProcessor
  * This class handles the detection and processing of dots for a single feature.
@@ -29,7 +36,9 @@ class FeatureDotsProcessor
 {
  public:
   // Constructor: Initializes the processor with the given image, feature processor, and feature.
-  FeatureDotsProcessor(gdImagePtr inImage, FeatureProcessor *featProc, Feature *feat);
+  FeatureDotsProcessor(gdImagePtr inImage, FeatureProcessor *featProc, Feature *feat,
+                       NormalizationMode normalization = NormalizationAffine,
+                       const std::string &resultLabel = "");
 
   // Destructor: Cleans up resources used by the processor.
   ~FeatureDotsProcessor();
@@ -40,7 +49,8 @@ class FeatureDotsProcessor
 
 protected:
   // Initialize the processor with the given image, feature processor, and feature.
-  void init(gdImagePtr inImage, FeatureProcessor *featProc, Feature *feat);
+  void init(gdImagePtr inImage, FeatureProcessor *featProc, Feature *feat,
+            NormalizationMode normalization, const std::string &resultLabel);
 
  public:
   RawImageGray8 *grayImg;   // Grayscale version of the image
@@ -54,6 +64,9 @@ protected:
 
   // Array of detected Qyoo rows
   int qyooRows[QYOOSIZE];
+  NormalizationMode normalization;
+  std::string resultLabel;
+  bool normalizationAvailable;
 };
 
 /*
@@ -82,7 +95,7 @@ class FeatureProcessor
   int findQyoo();
 
   // Find and process the dots in the valid Qyoo features.
-  void findDots(gdImagePtr inImage);
+  void findDots(gdImagePtr inImage, NormalizationMode normalization = NormalizationAffine);
 
  public:
   ConvolutionFilterInt *gaussFilter;  // Gaussian filter to reduce noise in the image
@@ -98,4 +111,3 @@ class FeatureProcessor
   // List of processors for the detected dots in valid Qyoo features
   std::vector<FeatureDotsProcessor *> featureDots;
 };
-

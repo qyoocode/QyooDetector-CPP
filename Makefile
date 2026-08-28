@@ -25,12 +25,15 @@ RESOURCE_TEST = $(TEST_BIN_DIR)/test_detector_resource_stress
 IMAGE_INPUT_TEST = $(TEST_BIN_DIR)/test_image_input
 PROJECTIVE_TRANSFORM_TEST = $(TEST_BIN_DIR)/test_projective_transform
 PROJECTIVE_ESTIMATE_TEST = $(TEST_BIN_DIR)/test_feature_projective_estimate
+PROJECTIVE_SAMPLING_TEST = $(TEST_BIN_DIR)/test_projective_sampling
 RESOURCE_STRESS_IMAGE ?= ../recovery/task-02/corpus/images/expanded_raw_zero.png
 RESOURCE_STRESS_ITERATIONS ?= 50
 RESOURCE_STRESS_LIMIT_BYTES ?= 67108864
 IMAGE_INPUT_PNG ?= ../recovery/task-02/corpus/images/expanded_raw_zero.png
 IMAGE_INPUT_JPG ?= ../recovery/task-03/focused-tests/image-input/expanded_raw_zero.jpg
 IMAGE_INPUT_JPEG ?= ../recovery/task-03/focused-tests/image-input/expanded_raw_zero.jpeg
+PROJECTIVE_MANIFEST ?= ../recovery/task-02/corpus/corpus_manifest.json
+PROJECTIVE_CONTROL_RESULTS ?= ../recovery/task-04/raw-evidence/00-control/task01_frozen_55/per_case_results.jsonl
 
 # Target to build everything
 all: $(EXECUTABLE)
@@ -58,8 +61,8 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)
 $(ASPECT_TEST): $(TEST_DIR)/test_feature_aspect_ratio.cpp $(CORE_OBJ_FILES) | $(TEST_BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< $(CORE_OBJ_FILES) -o $@ $(LDFLAGS)
 
-$(CONTRAST_TEST): $(TEST_DIR)/test_raw_image_contrast.cpp $(OBJ_DIR)/RawImage.o | $(TEST_BIN_DIR)
-	$(CXX) $(CXXFLAGS) $< $(OBJ_DIR)/RawImage.o -o $@ $(LDFLAGS)
+$(CONTRAST_TEST): $(TEST_DIR)/test_raw_image_contrast.cpp $(OBJ_DIR)/RawImage.o $(OBJ_DIR)/Geometry.o | $(TEST_BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(OBJ_DIR)/RawImage.o $(OBJ_DIR)/Geometry.o -o $@ $(LDFLAGS)
 
 $(SENTINEL_TEST): $(TEST_DIR)/test_background_average.cpp $(SRC_DIR)/FeatureDetector.cpp $(filter-out $(OBJ_DIR)/FeatureDetector.o $(OBJ_DIR)/main.o,$(OBJ_FILES)) | $(TEST_BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< $(filter-out $(OBJ_DIR)/FeatureDetector.o $(OBJ_DIR)/main.o,$(OBJ_FILES)) -o $@ $(LDFLAGS)
@@ -75,6 +78,9 @@ $(PROJECTIVE_TRANSFORM_TEST): $(TEST_DIR)/test_projective_transform.cpp $(OBJ_DI
 
 $(PROJECTIVE_ESTIMATE_TEST): $(TEST_DIR)/test_feature_projective_estimate.cpp $(OBJ_DIR)/Feature.o $(OBJ_DIR)/Geometry.o $(OBJ_DIR)/RawImage.o | $(TEST_BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< $(OBJ_DIR)/Feature.o $(OBJ_DIR)/Geometry.o $(OBJ_DIR)/RawImage.o -o $@ $(LDFLAGS)
+
+$(PROJECTIVE_SAMPLING_TEST): $(TEST_DIR)/test_projective_sampling.cpp $(OBJ_DIR)/Geometry.o $(OBJ_DIR)/RawImage.o | $(TEST_BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(OBJ_DIR)/Geometry.o $(OBJ_DIR)/RawImage.o -o $@ $(LDFLAGS)
 
 .PHONY: test-aspect
 test-aspect: $(ASPECT_TEST)
@@ -104,6 +110,14 @@ test-projective-transform: $(PROJECTIVE_TRANSFORM_TEST)
 .PHONY: test-projective-estimate
 test-projective-estimate: $(PROJECTIVE_ESTIMATE_TEST)
 	$(PROJECTIVE_ESTIMATE_TEST)
+
+.PHONY: test-projective-sampling
+test-projective-sampling: $(PROJECTIVE_SAMPLING_TEST)
+	$(PROJECTIVE_SAMPLING_TEST)
+
+.PHONY: test-projective-cli
+test-projective-cli: $(EXECUTABLE)
+	python3 $(TEST_DIR)/test_projective_cli.py $(EXECUTABLE) $(PROJECTIVE_MANIFEST) $(PROJECTIVE_CONTROL_RESULTS)
 
 # Clean up generated files
 clean:
