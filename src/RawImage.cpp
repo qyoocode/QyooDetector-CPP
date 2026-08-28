@@ -166,6 +166,9 @@ void RawImageGray8::runContrast()
         if (val > maxPix) maxPix = val;
     }
 
+    if (maxPix <= minPix)
+        return;
+
     float scale = 256.0 / (maxPix - minPix);
     for (unsigned int ii = 0; ii < totalSize(); ii++)
     {

@@ -19,6 +19,7 @@ OBJ_FILES = $(SRC_FILES:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 EXECUTABLE = $(BIN_DIR)/qyoo_detector
 CORE_OBJ_FILES = $(filter-out $(OBJ_DIR)/main.o,$(OBJ_FILES))
 ASPECT_TEST = $(TEST_BIN_DIR)/test_feature_aspect_ratio
+CONTRAST_TEST = $(TEST_BIN_DIR)/test_raw_image_contrast
 
 # Target to build everything
 all: $(EXECUTABLE)
@@ -46,9 +47,16 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)
 $(ASPECT_TEST): $(TEST_DIR)/test_feature_aspect_ratio.cpp $(CORE_OBJ_FILES) | $(TEST_BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< $(CORE_OBJ_FILES) -o $@ $(LDFLAGS)
 
+$(CONTRAST_TEST): $(TEST_DIR)/test_raw_image_contrast.cpp $(OBJ_DIR)/RawImage.o | $(TEST_BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(OBJ_DIR)/RawImage.o -o $@ $(LDFLAGS)
+
 .PHONY: test-aspect
 test-aspect: $(ASPECT_TEST)
 	$(ASPECT_TEST)
+
+.PHONY: test-contrast
+test-contrast: $(CONTRAST_TEST)
+	$(CONTRAST_TEST)
 
 # Clean up generated files
 clean:
