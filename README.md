@@ -13,7 +13,7 @@ This version of **QyooDetector** is optimized for running on Linux or other comm
 - Image flipping, saving, and matrix-based transformations.
 - C++ based, making it suitable for integration in server environments.
   
-This version uses **GD** to handle image input and output (PNG format), and **CML** for matrix transformations.
+This version uses **GD** to read PNG and JPEG images and write diagnostic PNGs, and **CML** for matrix transformations.
 
 ### Structure
 
@@ -43,47 +43,40 @@ make
 
 This will compile the project and output the qyoo_detector binary to the bin/ folder.
 
-### Typical Usage
+### Usage
 
-1. Copy a Qyoo image (such as one created with the [QyooGenerate-C](https://github.com/qyoocode/QyooGenerate-C) project) into the `/input` folder.
-2. From the root of the project, run the following commands:
-   - If you haven't already compiled the project, run `make`.
-   - Then, execute the following command:
+Pass a PNG or JPEG image to the detector:
 
 ```bash
-bin/qyoo_detector input/45427039637.png
+bin/qyoo_detector path/to/qyoo.png
 ```
 
-This should output something like:
+When a Qyoo is accepted, the command prints its raw 36-bit carrier and unsigned value:
 
 ```
 Binary = 101010010011101010011001110110010101
 Qyoo value = 45427039637
 ```
 
-After running, an image file will be saved to the `/output` folder with the name matching the detected decimal Qyoo value (if a Qyoo was detected). It will draw green circles around detected dots and red Xs where a dot was not detected.
+It also saves a diagnostic PNG under `output/`, with the accepted value as its filename. The image marks detected dots with green circles and clear cells with red Xs.
+
+### Bundled Sample Status
+
+`input/45427039637.png` is retained as a known failing renderer-compatibility sample, not as a successful installation demo. Its 6x6 cells do encode `45427039637`, but the current legacy detector traces 26 features and accepts no Qyoo shape. Disposable builds of every relevant buildable detector state from `4e65f18` through `5520ced` also reject this exact file. The README command naming the file was written in October 2024; the file itself was added in April 2025, so the former “should output” claim was never supported by repository history.
+
+The five JPEG camera photos under `input/qyoo-samples/` now load successfully. They contain real printed Qyoos but currently yield no accepted shapes; they are evidence for future geometry/localization work, not green examples.
 
 ### Verbose Mode
 
 You can add the `--v` flag to enable verbose logging. This will display debugging information such as feature detection progress and pixel data.
 
 ```bash
-bin/qyoo_detector input/45427039637.png --v
+bin/qyoo_detector path/to/qyoo.jpg --verbose
 ```
 
-Verbose mode output example:
+Verbose mode reports image dimensions, traced features, corner/model decisions, and the final accepted-shape count. A rejected input still exits normally after printing `No Qyoo found in the image.`
 
-```
-Debug: Loaded image with size: 512x512
-Debug: Starting Qyoo detection...
-Debug: Starting new feature at (246, 127), feature ID: 1
-Debug: First pass completed for feature ID: 1 with points: 798
-Debug: Second pass completed for feature ID: 1 with total points: 798
-...
-Binary = 101010010011101010011001110110010101
-Qyoo value = 45427039637
-Debug: Feature processing completed successfully.
-```
+Focused correctness checks are available as Make targets: `test-aspect`, `test-contrast`, `test-background-average`, `test-resource-stress`, and `test-image-input`. The recovery workspace's frozen detector scoreboard remains the behavioral regression authority.
 
 ## Legacy Server-Side Usage
 
