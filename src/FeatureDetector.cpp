@@ -142,9 +142,20 @@ static bool refineProjectiveFromVisibleDots(RawImageGray8 *affinePatch,
         double dy = projected.y - imagePoints[index].y;
         squaredError += dx * dx + dy * dy;
     }
-    feature->projectiveMat = fitted;
     feature->projectiveDotRmsError = sqrt(squaredError / modelPoints.size());
-    feature->projectiveDotRefined = std::isfinite(feature->projectiveDotRmsError);
+    feature->projectiveDotRefined = std::isfinite(feature->projectiveDotRmsError) &&
+        feature->projectiveOutlineError(fitted,
+                                        feature->projectiveRefinedOutlineRmsError,
+                                        feature->projectiveRefinedOutlineMaxError);
+    if (feature->projectiveDotRefined)
+        feature->projectiveRefinedOutlineNearFraction =
+            feature->projectiveOutlineNearFraction(fitted, 0.04);
+    // Preserve the historical model-check rule: more than 80% of the accepted
+    // outline must remain within 0.04 model units after dot-derived refinement.
+    feature->projectiveDotRefined = feature->projectiveDotRefined &&
+        feature->projectiveRefinedOutlineNearFraction > 0.8;
+    if (feature->projectiveDotRefined)
+        feature->projectiveMat = fitted;
     return feature->projectiveDotRefined;
 }
 
@@ -225,12 +236,35 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
                        std::to_string(feat->projectiveMat.at(2, 0)) + "," +
                        std::to_string(feat->projectiveMat.at(2, 1)) + "," +
                        std::to_string(feat->projectiveMat.at(2, 2)) + "]");
+            logVerbose("Projective refined-outline fit: RMS " +
+                       std::to_string(feat->projectiveRefinedOutlineRmsError) +
+                       ", max " + std::to_string(feat->projectiveRefinedOutlineMaxError) +
+                       ", near fraction " +
+                       std::to_string(feat->projectiveRefinedOutlineNearFraction));
         }
         else
         {
-            logVerbose("Projective dot refinement unavailable; using outline estimate.");
+            if (feat->projectiveDotCorrespondenceCount >= 4)
+            {
+                logVerbose("Projective rejected dot refinement: " +
+                           std::to_string(feat->projectiveDotCorrespondenceCount) +
+                           " centers, dot RMS " +
+                           std::to_string(feat->projectiveDotRmsError) +
+                           ", outline RMS " +
+                           std::to_string(feat->projectiveRefinedOutlineRmsError) +
+                           ", outline max " +
+                           std::to_string(feat->projectiveRefinedOutlineMaxError) +
+                           ", near fraction " +
+                           std::to_string(feat->projectiveRefinedOutlineNearFraction));
+                logVerbose("Projective dot refinement rejected by accepted-outline validation; payload not sampled.");
+                feat->projectiveValid = false;
+                return;
+            }
+            logVerbose("Projective dot refinement unavailable; using affine fallback.");
         }
-        ProjectiveTransform normalizedToImage = inputScale * feat->projectiveMat * dotTranslation * dotScale;
+        ProjectiveTransform normalizedToImage = feat->projectiveDotRefined
+            ? inputScale * feat->projectiveMat * dotTranslation * dotScale
+            : affineNormalizedToImage;
         if (!grayImg->copyFromGDImageProjective(inImage, normalizedToImage))
             return;
     }

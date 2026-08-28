@@ -478,6 +478,9 @@ bool Feature::estimateProjectiveTransform(int iterations)
 	projectiveDotRefined = false;
 	projectiveDotCorrespondenceCount = 0;
 	projectiveDotRmsError = 0.0;
+	projectiveRefinedOutlineRmsError = 0.0;
+	projectiveRefinedOutlineMaxError = 0.0;
+	projectiveRefinedOutlineNearFraction = 0.0;
 	if (!valid || origPoints.size() < 4 || iterations < 1)
 		return false;
 
@@ -510,8 +513,18 @@ bool Feature::estimateProjectiveTransform(int iterations)
 		projectiveCorrespondenceCount = static_cast<int>(modelPoints.size());
 	}
 
+	projectiveMat = current;
+	projectiveValid = projectiveOutlineError(current, projectiveRmsError, projectiveMaxError);
+	return projectiveValid;
+}
+
+bool Feature::projectiveOutlineError(const ProjectiveTransform &transform,
+	                                  double &rmsError, double &maxError) const
+{
+	if (origPoints.empty())
+		return false;
 	ProjectiveTransform inverse;
-	if (!current.inverse(inverse))
+	if (!transform.inverse(inverse))
 		return false;
 	double squaredError = 0.0;
 	double maximumError = 0.0;
@@ -521,15 +534,34 @@ bool Feature::estimateProjectiveTransform(int iterations)
 		if (!inverse.map(ProjectivePoint(point.x, point.y), modelPoint))
 			return false;
 		ProjectivePoint outlinePoint = nearestQyooOutlinePoint(modelPoint);
-		if (!current.map(outlinePoint, fittedPoint))
+		if (!transform.map(outlinePoint, fittedPoint))
 			return false;
 		double error = hypot(fittedPoint.x - point.x, fittedPoint.y - point.y);
 		squaredError += error * error;
 		maximumError = std::max(maximumError, error);
 	}
-	projectiveMat = current;
-	projectiveRmsError = sqrt(squaredError / origPoints.size());
-	projectiveMaxError = maximumError;
-	projectiveValid = std::isfinite(projectiveRmsError) && std::isfinite(projectiveMaxError);
-	return projectiveValid;
+	rmsError = sqrt(squaredError / origPoints.size());
+	maxError = maximumError;
+	return std::isfinite(rmsError) && std::isfinite(maxError);
+}
+
+double Feature::projectiveOutlineNearFraction(const ProjectiveTransform &transform,
+	                                           double nearDistance) const
+{
+	if (origPoints.empty() || nearDistance <= 0.0)
+		return 0.0;
+	ProjectiveTransform inverse;
+	if (!transform.inverse(inverse))
+		return 0.0;
+	int close = 0;
+	for (const Point &point : origPoints)
+	{
+		ProjectivePoint modelPoint;
+		if (!inverse.map(ProjectivePoint(point.x, point.y), modelPoint))
+			return 0.0;
+		ProjectivePoint outlinePoint = nearestQyooOutlinePoint(modelPoint);
+		if (hypot(outlinePoint.x - modelPoint.x, outlinePoint.y - modelPoint.y) < nearDistance)
+			close++;
+	}
+	return static_cast<double>(close) / origPoints.size();
 }

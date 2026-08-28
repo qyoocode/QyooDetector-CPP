@@ -54,6 +54,10 @@ public:
 	// Fit the accepted outline to the existing Qyoo model without changing
 	// candidate acceptance. The historical affine transform is the initializer.
 	bool estimateProjectiveTransform(int iterations = 12);
+	bool projectiveOutlineError(const ProjectiveTransform &transform,
+	                           double &rmsError, double &maxError) const;
+	double projectiveOutlineNearFraction(const ProjectiveTransform &transform,
+	                                    double nearDistance) const;
 				
 	// Single point structure.  Yeah, should be elsewhere.
 	class Point
@@ -94,6 +98,9 @@ public:
 	bool projectiveDotRefined;
 	int projectiveDotCorrespondenceCount;
 	double projectiveDotRmsError;
+	double projectiveRefinedOutlineRmsError;
+	double projectiveRefinedOutlineMaxError;
+	double projectiveRefinedOutlineNearFraction;
 	
 	// The raw bits for the dots, if they've been read
 	std::vector<unsigned char> dotBits;
