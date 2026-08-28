@@ -39,7 +39,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Check if verbose flag is set
-    NormalizationMode normalization = NormalizationProjective;
+    NormalizationMode normalization = NormalizationCarrierTemplate;
     ProjectiveFallbackPolicy fallbackPolicy = QualifiedAffineFallback;
     bool diagnostics = false;
     std::string visualDebugDirectory;

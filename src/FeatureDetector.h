@@ -130,7 +130,7 @@ class FeatureProcessor
   int findQyoo();
 
   // Find and process the dots in the valid Qyoo features.
-  void findDots(gdImagePtr inImage, NormalizationMode normalization = NormalizationProjective,
+  void findDots(gdImagePtr inImage, NormalizationMode normalization = NormalizationCarrierTemplate,
                 ProjectiveFallbackPolicy fallbackPolicy = QualifiedAffineFallback);
 
   // Optional decision-neutral diagnostics for test/recovery harnesses.

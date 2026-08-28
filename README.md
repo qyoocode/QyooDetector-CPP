@@ -60,11 +60,22 @@ Qyoo value = 45427039637
 
 It also saves a diagnostic PNG under `output/`, with the accepted value as its filename. The image marks detected dots with green circles and clear cells with red Xs.
 
+The default normalization fits the payload-independent carrier geometry from
+the curved boundary and two straight tangents, then resolves the carrier's
+one-dimensional projective ambiguity against an unknown-payload template. The
+final 36 bits still come from the independent historical 88×88 deterministic
+sampler; disagreement is rejected. The repaired historical path remains
+available as a diagnostic control with `--normalization projective`.
+
 ### Bundled Sample Status
 
 `input/45427039637.png` is retained as a known failing renderer-compatibility sample, not as a successful installation demo. Its 6x6 cells do encode `45427039637`, but the current legacy detector traces 26 features and accepts no Qyoo shape. Disposable builds of every relevant buildable detector state from `4e65f18` through `5520ced` also reject this exact file. The README command naming the file was written in October 2024; the file itself was added in April 2025, so the former “should output” claim was never supported by repository history.
 
-The five JPEG camera photos under `input/qyoo-samples/` now load successfully. They contain real printed Qyoos but currently yield no accepted shapes; they are evidence for future geometry/localization work, not green examples.
+The five JPEG camera photos under `input/qyoo-samples/` load successfully. With
+the current full-frame detector, `IMG_5171` and `IMG_5172` extract carrier data;
+`IMG_5170` is conservatively rejected because template fitting and final
+sampling disagree; `IMG_5169` and `IMG_5173` fail before normalization. Their
+historical payloads remain unverified, so none is a known-answer green example.
 
 ### Verbose Mode
 
