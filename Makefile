@@ -29,6 +29,7 @@ PROJECTIVE_TRANSFORM_TEST = $(TEST_BIN_DIR)/test_projective_transform
 PROJECTIVE_ESTIMATE_TEST = $(TEST_BIN_DIR)/test_feature_projective_estimate
 PROJECTIVE_SAMPLING_TEST = $(TEST_BIN_DIR)/test_projective_sampling
 CARRIER_AMBIGUITY_TEST = $(TEST_BIN_DIR)/test_carrier_ambiguity
+CARRIER_TEMPLATE_CLI_TEST = $(TEST_DIR)/test_carrier_template_cli.py
 RESOURCE_STRESS_IMAGE ?= ../recovery/task-02/corpus/images/expanded_raw_zero.png
 RESOURCE_STRESS_ITERATIONS ?= 50
 RESOURCE_STRESS_LIMIT_BYTES ?= 67108864
@@ -138,6 +139,10 @@ test-projective-sampling: $(PROJECTIVE_SAMPLING_TEST)
 .PHONY: test-carrier-ambiguity
 test-carrier-ambiguity: $(CARRIER_AMBIGUITY_TEST)
 	$(CARRIER_AMBIGUITY_TEST)
+
+.PHONY: test-carrier-template-cli
+test-carrier-template-cli: $(EXECUTABLE)
+	python3 $(CARRIER_TEMPLATE_CLI_TEST) $(EXECUTABLE) ../recovery/task-07/payload-density/manifest.json
 
 .PHONY: test-projective-cli
 test-projective-cli: $(EXECUTABLE)

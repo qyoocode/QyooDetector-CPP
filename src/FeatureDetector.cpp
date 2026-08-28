@@ -12,6 +12,8 @@
 
 #include <iostream>
 #include <iomanip>
+#include <algorithm>
+#include <limits>
 #include <map>
 #include <sstream>
 
@@ -32,6 +34,20 @@ const float DecimateDist = 0.85f;  // Tolerance for decimating points in a featu
 // observed wrong sparse-perspective fallback is 2.92 degrees away. Two degrees
 // retains a measured safety margin and is independently regression-tested.
 const double MaximumQualifiedAffineAngleDeviationDegrees = 2.0;
+
+// The selected payload must be the strict, integer-valued reconstruction
+// optimum. A tie is an unsupported identifier and is rejected. Larger margins
+// are reported as confidence evidence, but are not treated as calibrated
+// probabilities. This retains the one-pixel native development case; the
+// independent deterministic sampler must still agree before acceptance.
+const int MinimumCarrierTemplatePayloadGap = 1;
+const double MinimumCarrierAmbiguityAmount = -0.25;
+const double MaximumCarrierAmbiguityAmount = 0.25;
+// At 176 fitting pixels, a 0.005 ambiguity increment moves the payload grid by
+// less than one fitting pixel across the measured carrier range. The complete
+// interval is still searched so alternate-payload evidence is not hidden by a
+// local optimizer.
+const int CarrierAmbiguitySearchSteps = 101;
 
 static bool refineProjectiveFromVisibleDots(RawImageGray8 *affinePatch,
                                             const ProjectiveTransform &normalizedToImage,
@@ -168,6 +184,154 @@ static bool refineProjectiveFromVisibleDots(RawImageGray8 *affinePatch,
     return feature->projectiveDotRefined;
 }
 
+struct CarrierTemplateFit
+{
+    CarrierTemplateFit()
+        : valid(false), boundary(false), ambiguous(false), amount(0.0),
+          bestLoss(std::numeric_limits<int>::max()),
+          alternativeLoss(std::numeric_limits<int>::max()), distinctPayloads(0) { }
+    bool valid;
+    bool boundary;
+    bool ambiguous;
+    double amount;
+    int bestLoss;
+    int alternativeLoss;
+    int distinctPayloads;
+    std::string payload;
+    ProjectiveTransform normalizedToImage;
+};
+
+static bool oppositePixel(int value, int background)
+{
+    int contrast = abs(background - value);
+    bool backgroundIsWhite = background >= 128;
+    return contrast > RadianceDistMatch &&
+        (backgroundIsWhite ? value < 160 : value > 96);
+}
+
+static int carrierTemplateLoss(RawImageGray8 *patch, std::string &payload)
+{
+    const int radius = PixelsPerDot / 2;
+    int backgroundTotal = 0;
+    int backgroundCount = 0;
+    for (int dy = -radius; dy <= radius; dy++)
+        for (int dx = -radius; dx <= radius; dx++)
+            if (dx * dx + dy * dy < radius * radius)
+            {
+                backgroundTotal += patch->getPixel(radius + dx, radius + dy);
+                backgroundCount++;
+            }
+    if (backgroundCount == 0)
+        return std::numeric_limits<int>::max();
+    int background = backgroundTotal / backgroundCount;
+    int width = patch->getSizeX();
+    int height = patch->getSizeY();
+    std::vector<unsigned char> observed(width * height, 0);
+    for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
+            observed[y * width + x] = oppositePixel(patch->getPixel(x, y), background);
+
+    QyooModel *model = QyooModel::getQyooModel();
+    SimplePoint2D lower, upper;
+    model->dotBounds(lower, upper, true);
+    double spanX = upper.x - lower.x;
+    double spanY = upper.y - lower.y;
+    int loss = 0;
+    for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
+        {
+            double modelX = lower.x + spanX * x / width;
+            double modelY = lower.y + spanY * y / height;
+            bool insideCircle = (modelX - 0.5) * (modelX - 0.5) +
+                                (modelY - 0.5) * (modelY - 0.5) <= 0.25;
+            bool insideSquare = modelX <= 0.5 && modelY <= 0.5;
+            bool predictedOpposite = !(insideCircle || insideSquare);
+            if (predictedOpposite != static_cast<bool>(observed[y * width + x]))
+                loss++;
+        }
+
+    payload.assign(QYOOSIZE * QYOOSIZE, '0');
+    double dotRadius = model->dotRadius();
+    for (int row = 0; row < model->numRows(); row++)
+        for (int position = 0; position < model->numPos(); position++)
+        {
+            SimplePoint2D center = model->dotLocation(position, row);
+            int zeroLoss = 0;
+            int oneLoss = 0;
+            for (int y = 0; y < height; y++)
+                for (int x = 0; x < width; x++)
+                {
+                    double modelX = lower.x + spanX * x / width;
+                    double modelY = lower.y + spanY * y / height;
+                    double dx = modelX - center.x;
+                    double dy = modelY - center.y;
+                    if (dx * dx + dy * dy >= dotRadius * dotRadius)
+                        continue;
+                    bool value = observed[y * width + x];
+                    zeroLoss += value;
+                    oneLoss += !value;
+                }
+            if (oneLoss < zeroLoss)
+            {
+                loss += oneLoss - zeroLoss;
+                int bitIndex = (QYOOSIZE - row - 1) * QYOOSIZE +
+                               (QYOOSIZE - position - 1);
+                payload[bitIndex] = '1';
+            }
+        }
+    return loss;
+}
+
+static CarrierTemplateFit fitCarrierTemplate(gdImagePtr input,
+                                             const ProjectiveTransform &inputScale,
+                                             const ProjectiveTransform &outline,
+                                             const ProjectiveTransform &dotTranslation,
+                                             const ProjectiveTransform &dotScale,
+                                             int patchWidth, int patchHeight,
+                                             int searchSteps)
+{
+    CarrierTemplateFit result;
+    std::map<std::string, int> payloadLosses;
+    int bestIndex = -1;
+    for (int index = 0; index < searchSteps; index++)
+    {
+        double fraction = static_cast<double>(index) / (searchSteps - 1);
+        double amount = MinimumCarrierAmbiguityAmount +
+            fraction * (MaximumCarrierAmbiguityAmount - MinimumCarrierAmbiguityAmount);
+        ProjectiveTransform normalizedToImage = inputScale * outline *
+            QyooModel::carrierAmbiguityTransform(amount) * dotTranslation * dotScale;
+        RawImageGray8 trial(patchWidth, patchHeight);
+        if (!trial.copyFromGDImageProjective(input, normalizedToImage))
+            continue;
+        trial.runContrast();
+        std::string payload;
+        int loss = carrierTemplateLoss(&trial, payload);
+        auto found = payloadLosses.find(payload);
+        if (found == payloadLosses.end() || loss < found->second)
+            payloadLosses[payload] = loss;
+        if (loss < result.bestLoss ||
+            (loss == result.bestLoss && fabs(amount) < fabs(result.amount)))
+        {
+            result.bestLoss = loss;
+            result.amount = amount;
+            result.payload = payload;
+            result.normalizedToImage = normalizedToImage;
+            bestIndex = index;
+        }
+    }
+    if (bestIndex < 0)
+        return result;
+    result.distinctPayloads = static_cast<int>(payloadLosses.size());
+    for (const auto &entry : payloadLosses)
+        if (entry.first != result.payload)
+            result.alternativeLoss = std::min(result.alternativeLoss, entry.second);
+    result.boundary = bestIndex == 0 || bestIndex == searchSteps - 1;
+    result.ambiguous = result.alternativeLoss != std::numeric_limits<int>::max() &&
+        result.alternativeLoss - result.bestLoss < MinimumCarrierTemplatePayloadGap;
+    result.valid = !result.boundary && !result.ambiguous;
+    return result;
+}
+
 // FeatureDotsProcessor constructor
 // Initializes the dot processor with an image, a feature processor, and a feature.
 FeatureDotsProcessor::FeatureDotsProcessor(gdImagePtr inImage, FeatureProcessor *inFeatProc,
@@ -193,14 +357,35 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
     fallbackPolicy = inFallbackPolicy;
     normalizationAvailable = false;
 	normalizedPatchToInputValid = false;
-	affinePilotToInputValid = false;
+    affinePilotToInputValid = false;
+	carrierTemplateAttempted = false;
+	carrierTemplateAvailable = false;
+	carrierTemplateAmbiguous = false;
+	carrierTemplateBoundaryRejected = false;
+	carrierTemplateSamplerDisagreed = false;
+	carrierTemplateAmbiguityAmount = 0.0;
+	carrierTemplateBestLoss = -1;
+	carrierTemplateAlternativeLoss = -1;
+	carrierTemplateDistinctPayloads = 0;
+	carrierTemplateSearchSteps = 0;
+	carrierTemplatePayload.clear();
 	backgroundAverage = -1;
 	for (int row = 0; row < QYOOSIZE; row++)
 		for (int position = 0; position < QYOOSIZE; position++)
+		{
 			sampledBits[row][position] = -1;
+			sampleValidCount[row][position] = 0;
+			sampleMatchCount[row][position] = 0;
+			sampleCenterGray[row][position] = -1;
+			sampleMatchRatio[row][position] = 0.0;
+			sampleMeanGray[row][position] = 0.0;
+			sampleMedianGray[row][position] = 0.0;
+			sampleDecisionMargin[row][position] = 0.0;
+		}
 	if (normalization == NormalizationAffine)
 		feat->affineNormalizationAttempted = true;
-	else if (normalization == NormalizationProjective)
+	else if (normalization == NormalizationProjective ||
+	         normalization == NormalizationCarrierTemplate)
 		feat->projectiveNormalizationAttempted = true;
 
     QyooModel *qyooModel = QyooModel::getQyooModel();
@@ -221,7 +406,8 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
 
     // Convert the image to grayscale and apply contrast
     grayImg = new RawImageGray8(sizeX, sizeY);
-    if (normalization == NormalizationProjective)
+    if (normalization == NormalizationProjective ||
+        normalization == NormalizationCarrierTemplate)
     {
         if (!feat->projectiveValid)
             return;
@@ -245,7 +431,56 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
         if (!affinePilot.copyFromGDImageProjective(inImage, affineNormalizedToImage))
             return;
         affinePilot.runContrast();
-        if (refineProjectiveFromVisibleDots(&affinePilot, affineNormalizedToImage, feat))
+        if (normalization == NormalizationCarrierTemplate)
+        {
+            carrierTemplateAttempted = true;
+            if (!feat->carrierProjectiveValid && !feat->estimateCarrierProjectiveClass())
+            {
+                logVerbose("Carrier line/conic projective class unavailable; payload rejected.");
+                return;
+            }
+            CarrierTemplateFit fit = fitCarrierTemplate(
+                inImage, inputScale, feat->carrierProjectiveMat, dotTranslation, dotScale,
+                sizeX * 2, sizeY * 2, CarrierAmbiguitySearchSteps);
+            carrierTemplateSearchSteps = CarrierAmbiguitySearchSteps;
+            if (fit.ambiguous && !fit.boundary)
+            {
+                fit = fitCarrierTemplate(
+                    inImage, inputScale, feat->carrierProjectiveMat,
+                    dotTranslation, dotScale, sizeX * 2, sizeY * 2,
+                    2 * CarrierAmbiguitySearchSteps - 1);
+                carrierTemplateSearchSteps = 2 * CarrierAmbiguitySearchSteps - 1;
+            }
+            carrierTemplateAmbiguityAmount = fit.amount;
+            carrierTemplateBestLoss = fit.bestLoss == std::numeric_limits<int>::max()
+                ? -1 : fit.bestLoss;
+            carrierTemplateAlternativeLoss =
+                fit.alternativeLoss == std::numeric_limits<int>::max()
+                ? -1 : fit.alternativeLoss;
+            carrierTemplateDistinctPayloads = fit.distinctPayloads;
+            carrierTemplatePayload = fit.payload;
+            carrierTemplateAmbiguous = fit.ambiguous;
+            carrierTemplateBoundaryRejected = fit.boundary;
+            if (!fit.valid)
+            {
+                logVerbose(fit.boundary
+                    ? "Carrier-template optimum reached search boundary; payload rejected."
+                    : "Carrier-template payload alternatives are ambiguous; payload rejected.");
+                return;
+            }
+            if (!grayImg->copyFromGDImageProjective(inImage, fit.normalizedToImage))
+                return;
+            normalizedPatchToInput = fit.normalizedToImage;
+            normalizedPatchToInputValid = true;
+            carrierTemplateAvailable = true;
+            logVerbose("Carrier-template fit: amount " + std::to_string(fit.amount) +
+                       ", loss " + std::to_string(fit.bestLoss) +
+                       ", alternative " +
+                       (fit.alternativeLoss == std::numeric_limits<int>::max()
+                           ? std::string("none") : std::to_string(fit.alternativeLoss)) +
+                       ", payloads " + std::to_string(fit.distinctPayloads));
+        }
+        else if (refineProjectiveFromVisibleDots(&affinePilot, affineNormalizedToImage, feat))
         {
             logVerbose("Projective dot refinement: " +
                        std::to_string(feat->projectiveDotCorrespondenceCount) +
@@ -297,13 +532,16 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
             logVerbose("Projective dot refinement unavailable; using affine fallback.");
 			feat->projectiveAffineFallbackUsed = true;
         }
-        ProjectiveTransform normalizedToImage = feat->projectiveDotRefined
-            ? inputScale * feat->projectiveMat * dotTranslation * dotScale
-            : affineNormalizedToImage;
-        if (!grayImg->copyFromGDImageProjective(inImage, normalizedToImage))
-            return;
-        normalizedPatchToInput = normalizedToImage;
-        normalizedPatchToInputValid = true;
+        if (normalization == NormalizationProjective)
+        {
+            ProjectiveTransform normalizedToImage = feat->projectiveDotRefined
+                ? inputScale * feat->projectiveMat * dotTranslation * dotScale
+                : affineNormalizedToImage;
+            if (!grayImg->copyFromGDImageProjective(inImage, normalizedToImage))
+                return;
+            normalizedPatchToInput = normalizedToImage;
+            normalizedPatchToInputValid = true;
+        }
     }
     else
     {
@@ -327,7 +565,8 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
     normalizationAvailable = true;
 	if (normalization == NormalizationAffine)
 		feat->affineNormalizationAvailable = true;
-	else if (normalization == NormalizationProjective)
+	else if (normalization == NormalizationProjective ||
+	         normalization == NormalizationCarrierTemplate)
 		feat->projectiveNormalizationAvailable = true;
 }
 
@@ -360,7 +599,19 @@ static int calcAvgPixel(RawImageGray8 *img, int px, int py, ConvolutionFilterInt
 
 // Constants used for dot detection
 // Check if an area contains a dot by comparing the radiance of pixels
-static bool isAdot(RawImageGray8 *img,int px,int py,int pixelsInDot,ConvolutionFilterInt *radFilter,int backColor)
+struct DotSampleMeasurement
+{
+	int validCount;
+	int matchCount;
+	int centerGray;
+	double ratio;
+	double meanGray;
+	double medianGray;
+	double decisionMargin;
+};
+
+static bool isAdot(RawImageGray8 *img,int px,int py,int pixelsInDot,
+	ConvolutionFilterInt *radFilter,int backColor, DotSampleMeasurement *measurement = nullptr)
 {
 	std::vector<int> results(radFilter->getSize()*radFilter->getSize());
 	radFilter->processPixel(img,px,py,&results[0]);
@@ -370,11 +621,13 @@ static bool isAdot(RawImageGray8 *img,int px,int py,int pixelsInDot,ConvolutionF
 
 	// Run through and look for matching pixels
 	int numMatch = 0;
+	std::vector<int> validValues;
 	for (unsigned int ii=0;ii<radFilter->getSize()*radFilter->getSize();ii++)
 	{
 		int thisColor = results[ii];
 		if (thisColor >= 0)
 		{
+			validValues.push_back(thisColor);
 			// Distance from this pixel to the grey value we're after
 			int dist = backColor - thisColor;  if (dist < 0) dist *= -1;
 
@@ -386,6 +639,25 @@ static bool isAdot(RawImageGray8 *img,int px,int py,int pixelsInDot,ConvolutionF
 	}
 
 	float ratio = (float)numMatch / (float)radFilter->getFact();
+	if (measurement)
+	{
+		measurement->validCount = static_cast<int>(validValues.size());
+		measurement->matchCount = numMatch;
+		measurement->centerGray = img->getPixel(px, py);
+		measurement->ratio = ratio;
+		measurement->decisionMargin = ratio - PassRatio;
+		double total = 0.0;
+		for (int value : validValues) total += value;
+		measurement->meanGray = validValues.empty() ? 0.0 : total / validValues.size();
+		std::sort(validValues.begin(), validValues.end());
+		if (validValues.empty()) measurement->medianGray = 0.0;
+		else if (validValues.size() % 2 == 1)
+			measurement->medianGray = validValues[validValues.size() / 2];
+		else
+			measurement->medianGray =
+				(validValues[validValues.size() / 2 - 1] +
+				 validValues[validValues.size() / 2]) / 2.0;
+	}
 
 	return (ratio >= PassRatio);
 }
@@ -454,7 +726,18 @@ void FeatureDotsProcessor::findDotsGray() {
         for (unsigned int pos = 0; pos < numPos; pos++) {
             int posPix = PixelsPerDot * (pos + 1) + PixelsPerDot / 2;
 
-            if (isAdot(grayImg, posPix, rowPix, PixelsPerDot, radFilter, avgPixel)) {
+            DotSampleMeasurement measurement;
+            bool decoded = isAdot(grayImg, posPix, rowPix, PixelsPerDot,
+                                  radFilter, avgPixel, &measurement);
+            sampleValidCount[row][pos] = measurement.validCount;
+            sampleMatchCount[row][pos] = measurement.matchCount;
+            sampleCenterGray[row][pos] = measurement.centerGray;
+            sampleMatchRatio[row][pos] = measurement.ratio;
+            sampleMeanGray[row][pos] = measurement.meanGray;
+            sampleMedianGray[row][pos] = measurement.medianGray;
+            sampleDecisionMargin[row][pos] = measurement.decisionMargin;
+
+            if (decoded) {
                 resChar |= 1 << pos;
                 sampledBits[row][pos] = 1;
 
@@ -487,6 +770,17 @@ void FeatureDotsProcessor::findDotsGray() {
         logVerbose("Row " + std::to_string(row) + ": resChar (binary) = " + currentRowBits);
         logVerbose("Current qyooBits = " + qyooBits);
     }
+    if (normalization == NormalizationCarrierTemplate &&
+        qyooBits != carrierTemplatePayload)
+    {
+        carrierTemplateSamplerDisagreed = true;
+        logVerbose("Carrier-template fitted payload and deterministic sampler disagree; payload rejected.");
+        qyooBits.clear();
+        feat->dotBits.clear();
+        gdImageDestroy(outImg);
+        delete radFilter;
+        return;
+    }
     feat->dotBinStr = qyooBits;
 
     // Convert the full binary string (qyooBits) to decimal, but first ensure it's within the range of an unsigned long long
@@ -500,7 +794,8 @@ void FeatureDotsProcessor::findDotsGray() {
         std::cout << prefix << "Qyoo value = " << feat->dotDecStr << std::endl;
 		if (normalization == NormalizationAffine)
 			feat->affinePayloadExtracted = true;
-		else if (normalization == NormalizationProjective)
+		else if (normalization == NormalizationProjective ||
+		         normalization == NormalizationCarrierTemplate)
 			feat->projectivePayloadExtracted = true;
     }
 
@@ -648,6 +943,7 @@ static const char *normalizationModeCode(NormalizationMode normalization)
     {
         case NormalizationAffine: return "affine";
         case NormalizationProjective: return "projective";
+        case NormalizationCarrierTemplate: return "carrier-template";
         case NormalizationShadow: return "shadow";
     }
     return "unknown";
@@ -938,6 +1234,13 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
     {
         if (index != 0) output << ',';
         const Feature &feature = feats[index];
+        const FeatureDotsProcessor *carrierTemplateDots = nullptr;
+        for (const FeatureDotsProcessor *dots : featureDots)
+            if (dots->feat == &feature && dots->normalization == NormalizationCarrierTemplate)
+            {
+                carrierTemplateDots = dots;
+                break;
+            }
         output << "{\"feature_index\":" << index;
         output << ",\"rejection_reason\":" << jsonString(featureRejectionReasonCode(feature.rejectionReason));
         output << ",\"accepted\":" << jsonBoolean(feature.valid);
@@ -972,6 +1275,17 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
         output << ",\"projective_outline_available\":" << jsonBoolean(feature.projectiveCorrespondenceCount > 0);
         output << ",\"projective_outline_rms_pixels\":" << feature.projectiveRmsError;
         output << ",\"projective_outline_max_error_pixels\":" << feature.projectiveMaxError;
+        output << ",\"carrier_projective_class_available\":"
+               << jsonBoolean(feature.carrierProjectiveValid);
+        output << ",\"carrier_circle_point_count\":" << feature.carrierCirclePointCount;
+        output << ",\"carrier_first_edge_point_count\":"
+               << feature.carrierFirstEdgePointCount;
+        output << ",\"carrier_second_edge_point_count\":"
+               << feature.carrierSecondEdgePointCount;
+        output << ",\"carrier_projective_rms_pixels\":"
+               << feature.carrierProjectiveRmsError;
+        output << ",\"carrier_projective_max_error_pixels\":"
+               << feature.carrierProjectiveMaxError;
         output << ",\"projective_dot_correspondence_count\":" << feature.projectiveDotCorrespondenceCount;
         output << ",\"projective_dot_rms_pixels\":" << feature.projectiveDotRmsError;
         output << ",\"projective_dot_refined\":" << jsonBoolean(feature.projectiveDotRefined);
@@ -991,6 +1305,39 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
                << jsonBoolean(feature.affinePayloadExtracted || feature.projectivePayloadExtracted);
         output << ",\"normalization_outcome\":"
                << jsonString(normalizationOutcomeCode(feature, normalization));
+        output << ",\"carrier_template_diagnostics\":";
+        if (!carrierTemplateDots)
+            output << "null";
+        else
+        {
+            output << "{\"attempted\":"
+                   << jsonBoolean(carrierTemplateDots->carrierTemplateAttempted);
+            output << ",\"available\":"
+                   << jsonBoolean(carrierTemplateDots->carrierTemplateAvailable);
+            output << ",\"ambiguity_amount\":"
+                   << carrierTemplateDots->carrierTemplateAmbiguityAmount;
+            output << ",\"best_loss_pixels\":";
+            if (carrierTemplateDots->carrierTemplateBestLoss >= 0)
+                output << carrierTemplateDots->carrierTemplateBestLoss;
+            else output << "null";
+            output << ",\"alternative_payload_loss_pixels\":";
+            if (carrierTemplateDots->carrierTemplateAlternativeLoss >= 0)
+                output << carrierTemplateDots->carrierTemplateAlternativeLoss;
+            else output << "null";
+            output << ",\"distinct_payloads\":"
+                   << carrierTemplateDots->carrierTemplateDistinctPayloads;
+            output << ",\"search_steps\":"
+                   << carrierTemplateDots->carrierTemplateSearchSteps;
+            output << ",\"fitted_payload\":"
+                   << (carrierTemplateDots->carrierTemplatePayload.empty()
+                       ? "null" : jsonString(carrierTemplateDots->carrierTemplatePayload));
+            output << ",\"ambiguous_rejected\":"
+                   << jsonBoolean(carrierTemplateDots->carrierTemplateAmbiguous);
+            output << ",\"search_boundary_rejected\":"
+                   << jsonBoolean(carrierTemplateDots->carrierTemplateBoundaryRejected);
+            output << ",\"sampler_disagreement_rejected\":"
+                   << jsonBoolean(carrierTemplateDots->carrierTemplateSamplerDisagreed) << '}';
+        }
         if (includeVisualGeometry)
         {
             bool detailAvailable = feature.sizeCheckPassed || feature.cornerGeometryPassed ||
@@ -1033,6 +1380,11 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
                 writeProjectiveMatrixJson(output, feature.projectiveMat);
             else
                 output << "null";
+            output << ",\"carrier_projective_model_to_input\":";
+            if (feature.carrierProjectiveValid)
+                writeProjectiveMatrixJson(output, feature.carrierProjectiveMat);
+            else
+                output << "null";
             output << ",\"projective_dot_model_points\":";
             writeProjectivePointsJson(output, feature.projectiveDotModelPoints);
             output << ",\"projective_dot_input_points\":";
@@ -1051,6 +1403,8 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
                 {
                     if (dots->normalization == NormalizationAffine)
                         strategy = "affine";
+                    else if (dots->normalization == NormalizationCarrierTemplate)
+                        strategy = "carrier_template_projective";
                     else if (feature.projectiveDotRefined)
                         strategy = "projective";
                     else if (feature.projectiveAffineFallbackUsed)
@@ -1084,6 +1438,28 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
                     writeProjectiveMatrixJson(output, dots->affinePilotToInput);
                 else
                     output << "null";
+                output << ",\"carrier_template\":{";
+                output << "\"attempted\":" << jsonBoolean(dots->carrierTemplateAttempted);
+                output << ",\"available\":" << jsonBoolean(dots->carrierTemplateAvailable);
+                output << ",\"ambiguity_amount\":" << dots->carrierTemplateAmbiguityAmount;
+                output << ",\"best_loss_pixels\":";
+                if (dots->carrierTemplateBestLoss >= 0) output << dots->carrierTemplateBestLoss;
+                else output << "null";
+                output << ",\"alternative_payload_loss_pixels\":";
+                if (dots->carrierTemplateAlternativeLoss >= 0)
+                    output << dots->carrierTemplateAlternativeLoss;
+                else output << "null";
+                output << ",\"distinct_payloads\":" << dots->carrierTemplateDistinctPayloads;
+                output << ",\"search_steps\":" << dots->carrierTemplateSearchSteps;
+                output << ",\"fitted_payload\":"
+                       << (dots->carrierTemplatePayload.empty()
+                           ? "null" : jsonString(dots->carrierTemplatePayload));
+                output << ",\"ambiguous_rejected\":"
+                       << jsonBoolean(dots->carrierTemplateAmbiguous);
+                output << ",\"search_boundary_rejected\":"
+                       << jsonBoolean(dots->carrierTemplateBoundaryRejected);
+                output << ",\"sampler_disagreement_rejected\":"
+                       << jsonBoolean(dots->carrierTemplateSamplerDisagreed) << '}';
                 output << ",\"patch_size\":{\"width\":" << dots->grayImg->getSizeX()
                        << ",\"height\":" << dots->grayImg->getSizeY() << '}';
                 output << ",\"background_sample\":{\"center\":[" << PixelsPerDot / 2
@@ -1110,7 +1486,22 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
                                << ",\"sampling_column\":" << position
                                << ",\"bit_index\":" << bitIndex
                                << ",\"center\":[" << centerX << ',' << centerY << ']'
-                               << ",\"decoded\":" << dots->sampledBits[row][position] << '}';
+                               << ",\"decoded\":" << dots->sampledBits[row][position]
+                               << ",\"valid_sample_count\":"
+                               << dots->sampleValidCount[row][position]
+                               << ",\"matching_sample_count\":"
+                               << dots->sampleMatchCount[row][position]
+                               << ",\"match_ratio\":"
+                               << dots->sampleMatchRatio[row][position]
+                               << ",\"decision_boundary\":" << PassRatio
+                               << ",\"decision_margin\":"
+                               << dots->sampleDecisionMargin[row][position]
+                               << ",\"center_gray\":"
+                               << dots->sampleCenterGray[row][position]
+                               << ",\"mean_gray\":"
+                               << dots->sampleMeanGray[row][position]
+                               << ",\"median_gray\":"
+                               << dots->sampleMedianGray[row][position] << '}';
                     }
                 output << "]}";
             }

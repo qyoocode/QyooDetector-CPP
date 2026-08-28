@@ -24,6 +24,7 @@ enum NormalizationMode
 {
   NormalizationAffine,
   NormalizationProjective,
+  NormalizationCarrierTemplate,
   NormalizationShadow
 };
 
@@ -74,6 +75,13 @@ protected:
   // Array of detected Qyoo rows
   int qyooRows[QYOOSIZE];
   int sampledBits[QYOOSIZE][QYOOSIZE];
+  int sampleValidCount[QYOOSIZE][QYOOSIZE];
+  int sampleMatchCount[QYOOSIZE][QYOOSIZE];
+  int sampleCenterGray[QYOOSIZE][QYOOSIZE];
+  double sampleMatchRatio[QYOOSIZE][QYOOSIZE];
+  double sampleMeanGray[QYOOSIZE][QYOOSIZE];
+  double sampleMedianGray[QYOOSIZE][QYOOSIZE];
+  double sampleDecisionMargin[QYOOSIZE][QYOOSIZE];
   int backgroundAverage;
   NormalizationMode normalization;
   std::string resultLabel;
@@ -83,6 +91,17 @@ protected:
   bool normalizedPatchToInputValid;
   ProjectiveTransform affinePilotToInput;
   bool affinePilotToInputValid;
+  bool carrierTemplateAttempted;
+  bool carrierTemplateAvailable;
+  bool carrierTemplateAmbiguous;
+  bool carrierTemplateBoundaryRejected;
+  bool carrierTemplateSamplerDisagreed;
+  double carrierTemplateAmbiguityAmount;
+  int carrierTemplateBestLoss;
+  int carrierTemplateAlternativeLoss;
+  int carrierTemplateDistinctPayloads;
+  int carrierTemplateSearchSteps;
+  std::string carrierTemplatePayload;
 };
 
 /*

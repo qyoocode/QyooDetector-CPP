@@ -32,7 +32,7 @@ static std::string diagnosticJsonString(const std::string &value) {
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <image_file> [--v|--verbose] "
-                  << "[--normalization affine|projective|shadow] "
+                  << "[--normalization affine|projective|carrier-template|shadow] "
                   << "[--fallback-policy legacy-affine|reject|qualified] [--diagnostics] "
                   << "[--visual-debug-dir DIRECTORY]" << std::endl;
         return 1;
@@ -58,12 +58,13 @@ int main(int argc, char* argv[]) {
             diagnostics = true;
         } else if (arg == "--normalization") {
             if (i + 1 >= argc) {
-                std::cerr << "Error: --normalization requires affine, projective, or shadow." << std::endl;
+                std::cerr << "Error: --normalization requires affine, projective, carrier-template, or shadow." << std::endl;
                 return 1;
             }
             std::string value = argv[++i];
             if (value == "affine") normalization = NormalizationAffine;
             else if (value == "projective") normalization = NormalizationProjective;
+            else if (value == "carrier-template") normalization = NormalizationCarrierTemplate;
             else if (value == "shadow") normalization = NormalizationShadow;
             else {
                 std::cerr << "Error: unknown normalization mode: " << value << std::endl;
