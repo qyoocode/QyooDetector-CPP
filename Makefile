@@ -164,6 +164,12 @@ test-fallback-policy: $(EXECUTABLE)
 test-corner-edge-pair: $(EXECUTABLE)
 	python3 $(TEST_DIR)/test_corner_edge_pair.py $(EXECUTABLE) $(CORNER_PAIR_IMAGE) $(CORNER_PAIR_EXPECTED_BITS) $(CORNER_PAIR_NEGATIVE)
 
-# Clean up generated files
+# Move generated files to a caller-selected, task-scoped recovery directory.
+# Example: make clean CLEAN_TRASH_DIR=../recovery/trash/task-08/detector-build
+.PHONY: clean
 clean:
-	rm -rf $(OBJ_DIR)/*.o $(EXECUTABLE)
+	@test -n "$(CLEAN_TRASH_DIR)" || \
+		(echo "Refusing permanent cleanup; set CLEAN_TRASH_DIR under recovery/trash/task-NN/." && exit 1)
+	mkdir -p $(CLEAN_TRASH_DIR)/bin
+	@if test -d $(OBJ_DIR); then mv $(OBJ_DIR) $(CLEAN_TRASH_DIR)/obj; fi
+	@if test -f $(EXECUTABLE); then mv $(EXECUTABLE) $(CLEAN_TRASH_DIR)/bin/qyoo_detector; fi
