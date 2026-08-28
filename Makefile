@@ -89,8 +89,8 @@ $(IMAGE_INPUT_TEST): $(TEST_DIR)/test_image_input.cpp $(OBJ_DIR)/ImageLoader.o |
 $(PROJECTIVE_TRANSFORM_TEST): $(TEST_DIR)/test_projective_transform.cpp $(OBJ_DIR)/Geometry.o | $(TEST_BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< $(OBJ_DIR)/Geometry.o -o $@ $(LDFLAGS)
 
-$(PROJECTIVE_ESTIMATE_TEST): $(TEST_DIR)/test_feature_projective_estimate.cpp $(OBJ_DIR)/Feature.o $(OBJ_DIR)/Geometry.o $(OBJ_DIR)/RawImage.o | $(TEST_BIN_DIR)
-	$(CXX) $(CXXFLAGS) $< $(OBJ_DIR)/Feature.o $(OBJ_DIR)/Geometry.o $(OBJ_DIR)/RawImage.o -o $@ $(LDFLAGS)
+$(PROJECTIVE_ESTIMATE_TEST): $(TEST_DIR)/test_feature_projective_estimate.cpp $(OBJ_DIR)/Feature.o $(OBJ_DIR)/Geometry.o $(OBJ_DIR)/RawImage.o $(OBJ_DIR)/QyooModel.o | $(TEST_BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(OBJ_DIR)/Feature.o $(OBJ_DIR)/Geometry.o $(OBJ_DIR)/RawImage.o $(OBJ_DIR)/QyooModel.o -o $@ $(LDFLAGS)
 
 $(PROJECTIVE_SAMPLING_TEST): $(TEST_DIR)/test_projective_sampling.cpp $(OBJ_DIR)/Geometry.o $(OBJ_DIR)/RawImage.o | $(TEST_BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< $(OBJ_DIR)/Geometry.o $(OBJ_DIR)/RawImage.o -o $@ $(LDFLAGS)

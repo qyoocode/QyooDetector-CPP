@@ -3,6 +3,7 @@
 #include <string>
 
 #include "src/Feature.h"
+#include "src/QyooModel.h"
 
 bool verbose = false;
 void logVerbose(const std::string &) { }
@@ -75,6 +76,41 @@ static void proveEstimate(const std::string &name, const ProjectiveTransform &tr
         require(hypot(actual.x - expected.x, actual.y - expected.y) < 1.2,
                 name + " fitted point is within one quantized contour pixel");
     }
+
+    require(feature.estimateCarrierProjectiveClass(),
+            name + " line/conic carrier class succeeds");
+    require(feature.carrierCirclePointCount > 100,
+            name + " retains substantial curved-boundary evidence");
+    require(feature.carrierFirstEdgePointCount > 20 &&
+            feature.carrierSecondEdgePointCount > 20,
+            name + " retains both straight carrier edges");
+    double bestGridRms = 1e100;
+    for (int index = 0; index <= 2000; index++)
+    {
+        double amount = -0.5 + index / 2000.0;
+        ProjectiveTransform candidate = feature.carrierProjectiveMat *
+            QyooModel::carrierAmbiguityTransform(amount);
+        double squared = 0.0;
+        int count = 0;
+        QyooModel *model = QyooModel::getQyooModel();
+        for (int row = 0; row < model->numRows(); row++)
+            for (int position = 0; position < model->numPos(); position++)
+            {
+                SimplePoint2D location = model->dotLocation(position, row);
+                ProjectivePoint expected, actual;
+                require(truth.map(ProjectivePoint(location.x, location.y), expected),
+                        name + " truth grid maps");
+                require(candidate.map(ProjectivePoint(location.x, location.y), actual),
+                        name + " carrier grid maps");
+                double dx = expected.x - actual.x;
+                double dy = expected.y - actual.y;
+                squared += dx * dx + dy * dy;
+                count++;
+            }
+        bestGridRms = std::min(bestGridRms, sqrt(squared / count));
+    }
+    require(bestGridRms < 1.2,
+            name + " carrier class contains the quantized ground-truth grid");
 }
 
 int main()

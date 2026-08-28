@@ -523,7 +523,15 @@ bool Feature::affineFallbackGeometryQualified(double maximumAngleDeviationDegree
 		fabs(cornerAngleDifference - 90.0) <= maximumAngleDeviationDegrees;
 }
 
-static ProjectivePoint nearestQyooOutlinePoint(const ProjectivePoint &point)
+enum QyooOutlineComponent
+{
+	QyooFirstStraightEdge,
+	QyooSecondStraightEdge,
+	QyooCurvedBoundary
+};
+
+static ProjectivePoint nearestQyooOutlinePoint(
+	const ProjectivePoint &point, QyooOutlineComponent *selectedComponent = nullptr)
 {
 	auto nearestOnSegment = [](const ProjectivePoint &value,
 	                           const ProjectivePoint &start,
@@ -543,12 +551,14 @@ static ProjectivePoint nearestQyooOutlinePoint(const ProjectivePoint &point)
 
 	ProjectivePoint best = nearestOnSegment(point, ProjectivePoint(0.0, 0.0), ProjectivePoint(0.5, 0.0));
 	double bestDistance = distance2(point, best);
+	QyooOutlineComponent component = QyooFirstStraightEdge;
 	ProjectivePoint otherEdge = nearestOnSegment(point, ProjectivePoint(0.0, 0.0), ProjectivePoint(0.0, 0.5));
 	double otherDistance = distance2(point, otherEdge);
 	if (otherDistance < bestDistance)
 	{
 		best = otherEdge;
 		bestDistance = otherDistance;
+		component = QyooSecondStraightEdge;
 	}
 
 	double circleX = point.x - 0.5;
@@ -564,9 +574,14 @@ static ProjectivePoint nearestQyooOutlinePoint(const ProjectivePoint &point)
 		{
 			double circleDistance = distance2(point, circlePoint);
 			if (circleDistance < bestDistance)
+			{
 				best = circlePoint;
+				component = QyooCurvedBoundary;
+			}
 		}
 	}
+	if (selectedComponent)
+		*selectedComponent = component;
 	return best;
 }
 
@@ -620,6 +635,286 @@ bool Feature::estimateProjectiveTransform(int iterations)
 	projectiveMat = current;
 	projectiveValid = projectiveOutlineError(current, projectiveRmsError, projectiveMaxError);
 	return projectiveValid;
+}
+
+static bool solveFive(double matrix[5][5], double right[5], double solution[5])
+{
+	for (int column = 0; column < 5; column++)
+	{
+		int pivotRow = column;
+		double pivotMagnitude = fabs(matrix[column][column]);
+		for (int row = column + 1; row < 5; row++)
+			if (fabs(matrix[row][column]) > pivotMagnitude)
+			{
+				pivotMagnitude = fabs(matrix[row][column]);
+				pivotRow = row;
+			}
+		if (!std::isfinite(pivotMagnitude) || pivotMagnitude <= 1e-12)
+			return false;
+		if (pivotRow != column)
+		{
+			for (int index = column; index < 5; index++)
+				std::swap(matrix[column][index], matrix[pivotRow][index]);
+			std::swap(right[column], right[pivotRow]);
+		}
+		double pivot = matrix[column][column];
+		for (int row = column + 1; row < 5; row++)
+		{
+			double factor = matrix[row][column] / pivot;
+			for (int index = column; index < 5; index++)
+				matrix[row][index] -= factor * matrix[column][index];
+			right[row] -= factor * right[column];
+		}
+	}
+	for (int row = 4; row >= 0; row--)
+	{
+		double value = right[row];
+		for (int column = row + 1; column < 5; column++)
+			value -= matrix[row][column] * solution[column];
+		if (fabs(matrix[row][row]) <= 1e-12)
+			return false;
+		solution[row] = value / matrix[row][row];
+		if (!std::isfinite(solution[row]))
+			return false;
+	}
+	return true;
+}
+
+static bool fitConic(const std::vector<ProjectivePoint> &points, double conic[3][3])
+{
+	if (points.size() < 12)
+		return false;
+	double meanX = 0.0, meanY = 0.0;
+	for (const ProjectivePoint &point : points)
+	{
+		meanX += point.x;
+		meanY += point.y;
+	}
+	meanX /= points.size();
+	meanY /= points.size();
+	double meanDistance = 0.0;
+	for (const ProjectivePoint &point : points)
+		meanDistance += hypot(point.x - meanX, point.y - meanY);
+	meanDistance /= points.size();
+	if (!std::isfinite(meanDistance) || meanDistance <= 1e-9)
+		return false;
+	double scale = sqrt(2.0) / meanDistance;
+	double normal[5][5] = {{0.0}};
+	double right[5] = {0.0};
+	for (const ProjectivePoint &point : points)
+	{
+		double x = scale * (point.x - meanX);
+		double y = scale * (point.y - meanY);
+		double terms[5] = {x * x, x * y, y * y, x, y};
+		for (int row = 0; row < 5; row++)
+		{
+			right[row] += terms[row];
+			for (int column = 0; column < 5; column++)
+				normal[row][column] += terms[row] * terms[column];
+		}
+	}
+	double values[5] = {0.0};
+	if (!solveFive(normal, right, values))
+		return false;
+	double normalized[3][3] = {
+		{values[0], values[1] / 2.0, values[3] / 2.0},
+		{values[1] / 2.0, values[2], values[4] / 2.0},
+		{values[3] / 2.0, values[4] / 2.0, -1.0}
+	};
+	// A real ellipse requires a definite quadratic block. Multiplying the
+	// complete conic by -1 does not change its zero set.
+	double determinant = values[0] * values[2] -
+	                     (values[1] * values[1] / 4.0);
+	if (!std::isfinite(determinant) || determinant <= 1e-8)
+		return false;
+	double transform[3][3] = {
+		{scale, 0.0, -scale * meanX},
+		{0.0, scale, -scale * meanY},
+		{0.0, 0.0, 1.0}
+	};
+	double intermediate[3][3] = {{0.0}};
+	for (int row = 0; row < 3; row++)
+		for (int column = 0; column < 3; column++)
+			for (int inner = 0; inner < 3; inner++)
+				intermediate[row][column] += normalized[row][inner] * transform[inner][column];
+	for (int row = 0; row < 3; row++)
+		for (int column = 0; column < 3; column++)
+		{
+			conic[row][column] = 0.0;
+			for (int inner = 0; inner < 3; inner++)
+				conic[row][column] += transform[inner][row] * intermediate[inner][column];
+			if (!std::isfinite(conic[row][column]))
+				return false;
+		}
+	return true;
+}
+
+struct HomogeneousLine
+{
+	double a, b, c;
+};
+
+struct HomogeneousPoint
+{
+	double x, y, z;
+};
+
+static bool fitLine(const std::vector<ProjectivePoint> &points, HomogeneousLine &line)
+{
+	if (points.size() < 4)
+		return false;
+	double meanX = 0.0, meanY = 0.0;
+	for (const ProjectivePoint &point : points)
+	{
+		meanX += point.x;
+		meanY += point.y;
+	}
+	meanX /= points.size();
+	meanY /= points.size();
+	double xx = 0.0, xy = 0.0, yy = 0.0;
+	for (const ProjectivePoint &point : points)
+	{
+		double dx = point.x - meanX;
+		double dy = point.y - meanY;
+		xx += dx * dx;
+		xy += dx * dy;
+		yy += dy * dy;
+	}
+	double direction = 0.5 * atan2(2.0 * xy, xx - yy);
+	line.a = -sin(direction);
+	line.b = cos(direction);
+	line.c = -line.a * meanX - line.b * meanY;
+	return std::isfinite(line.a) && std::isfinite(line.b) && std::isfinite(line.c);
+}
+
+static HomogeneousPoint cross(const HomogeneousLine &first, const HomogeneousLine &second)
+{
+	return HomogeneousPoint{
+		first.b * second.c - first.c * second.b,
+		first.c * second.a - first.a * second.c,
+		first.a * second.b - first.b * second.a
+	};
+}
+
+static bool normalize(HomogeneousPoint &point)
+{
+	if (!std::isfinite(point.z) || fabs(point.z) <= 1e-10)
+		return false;
+	point.x /= point.z;
+	point.y /= point.z;
+	point.z = 1.0;
+	return std::isfinite(point.x) && std::isfinite(point.y);
+}
+
+static double conicProduct(const HomogeneousPoint &left, const double conic[3][3],
+	                         const HomogeneousPoint &right)
+{
+	double l[3] = {left.x, left.y, left.z};
+	double r[3] = {right.x, right.y, right.z};
+	double value = 0.0;
+	for (int row = 0; row < 3; row++)
+		for (int column = 0; column < 3; column++)
+			value += l[row] * conic[row][column] * r[column];
+	return value;
+}
+
+bool Feature::estimateCarrierProjectiveClass()
+{
+	carrierProjectiveValid = false;
+	carrierCirclePointCount = 0;
+	carrierFirstEdgePointCount = 0;
+	carrierSecondEdgePointCount = 0;
+	carrierProjectiveRmsError = 0.0;
+	carrierProjectiveMaxError = 0.0;
+	if (!projectiveValid || origPoints.size() < 20)
+		return false;
+	ProjectiveTransform inverse;
+	if (!projectiveMat.inverse(inverse))
+		return false;
+	std::vector<ProjectivePoint> curved, firstEdge, secondEdge;
+	for (const Point &point : origPoints)
+	{
+		ProjectivePoint imagePoint(point.x, point.y), modelPoint;
+		if (!inverse.map(imagePoint, modelPoint))
+			return false;
+		QyooOutlineComponent component;
+		nearestQyooOutlinePoint(modelPoint, &component);
+		if (component == QyooCurvedBoundary) curved.push_back(imagePoint);
+		else if (component == QyooFirstStraightEdge) firstEdge.push_back(imagePoint);
+		else secondEdge.push_back(imagePoint);
+	}
+	carrierCirclePointCount = static_cast<int>(curved.size());
+	carrierFirstEdgePointCount = static_cast<int>(firstEdge.size());
+	carrierSecondEdgePointCount = static_cast<int>(secondEdge.size());
+	double conic[3][3];
+	HomogeneousLine firstLine, secondLine;
+	if (!fitConic(curved, conic) || !fitLine(firstEdge, firstLine) ||
+	    !fitLine(secondEdge, secondLine))
+		return false;
+	HomogeneousPoint corner = cross(firstLine, secondLine);
+	if (!normalize(corner))
+		return false;
+	// The polar of the external corner is the chord joining the two points of
+	// tangency on the fitted conic.
+	HomogeneousLine polar{
+		conic[0][0] * corner.x + conic[0][1] * corner.y + conic[0][2],
+		conic[1][0] * corner.x + conic[1][1] * corner.y + conic[1][2],
+		conic[2][0] * corner.x + conic[2][1] * corner.y + conic[2][2]
+	};
+	double lineNorm2 = polar.a * polar.a + polar.b * polar.b;
+	if (!std::isfinite(lineNorm2) || lineNorm2 <= 1e-16)
+		return false;
+	HomogeneousPoint origin{-polar.a * polar.c / lineNorm2,
+	                        -polar.b * polar.c / lineNorm2, 1.0};
+	HomogeneousPoint direction{-polar.b, polar.a, 0.0};
+	double quadratic = conicProduct(direction, conic, direction);
+	double linear = 2.0 * conicProduct(origin, conic, direction);
+	double constant = conicProduct(origin, conic, origin);
+	double discriminant = linear * linear - 4.0 * quadratic * constant;
+	if (!std::isfinite(discriminant) || discriminant <= 1e-12 ||
+	    fabs(quadratic) <= 1e-12)
+		return false;
+	double root = sqrt(discriminant);
+	double amounts[2] = {
+		(-linear + root) / (2.0 * quadratic),
+		(-linear - root) / (2.0 * quadratic)
+	};
+	HomogeneousPoint contacts[2] = {
+		HomogeneousPoint{origin.x + amounts[0] * direction.x,
+		                 origin.y + amounts[0] * direction.y, 1.0},
+		HomogeneousPoint{origin.x + amounts[1] * direction.x,
+		                 origin.y + amounts[1] * direction.y, 1.0}
+	};
+	ProjectivePoint predictedFirst, predictedSecond;
+	if (!projectiveMat.map(ProjectivePoint(0.5, 0.0), predictedFirst) ||
+	    !projectiveMat.map(ProjectivePoint(0.0, 0.5), predictedSecond))
+		return false;
+	auto distance = [](const HomogeneousPoint &left, const ProjectivePoint &right) {
+		return hypot(left.x - right.x, left.y - right.y);
+	};
+	if (distance(contacts[0], predictedFirst) + distance(contacts[1], predictedSecond) >
+	    distance(contacts[1], predictedFirst) + distance(contacts[0], predictedSecond))
+		std::swap(contacts[0], contacts[1]);
+	double product = -conicProduct(corner, conic, corner) /
+	                 conicProduct(contacts[0], conic, contacts[1]);
+	if (!std::isfinite(product) || product <= 1e-12)
+		return false;
+	double scale = sqrt(product);
+	ProjectiveTransform imageBasis(
+		scale * contacts[0].x, scale * contacts[1].x, corner.x,
+		scale * contacts[0].y, scale * contacts[1].y, corner.y,
+		scale, scale, 1.0);
+	ProjectiveTransform inverseModelBasis(2.0, 0.0, 0.0,
+	                                      0.0, 2.0, 0.0,
+	                                      -2.0, -2.0, 1.0);
+	ProjectiveTransform candidate = imageBasis * inverseModelBasis;
+	ProjectiveTransform candidateInverse;
+	if (!candidate.isFinite() || !candidate.inverse(candidateInverse))
+		return false;
+	carrierProjectiveMat = candidate;
+	carrierProjectiveValid = projectiveOutlineError(
+		candidate, carrierProjectiveRmsError, carrierProjectiveMaxError);
+	return carrierProjectiveValid;
 }
 
 bool Feature::projectiveOutlineError(const ProjectiveTransform &transform,

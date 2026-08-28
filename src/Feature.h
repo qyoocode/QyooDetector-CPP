@@ -45,6 +45,12 @@ public:
 		closed = false;
 		modelChecked = false;
 		projectiveValid = false;
+		carrierProjectiveValid = false;
+		carrierCirclePointCount = 0;
+		carrierFirstEdgePointCount = 0;
+		carrierSecondEdgePointCount = 0;
+		carrierProjectiveRmsError = 0.0;
+		carrierProjectiveMaxError = 0.0;
 		projectiveIterations = 0;
 		projectiveCorrespondenceCount = 0;
 		projectiveRmsError = 0.0;
@@ -109,6 +115,11 @@ public:
 	// Fit the accepted outline to the existing Qyoo model without changing
 	// candidate acceptance. The historical affine transform is the initializer.
 	bool estimateProjectiveTransform(int iterations = 12);
+	// Recover the seven observable projective degrees of freedom from the two
+	// straight carrier edges and the fitted curved boundary. The remaining
+	// one-dimensional ambiguity is represented explicitly by
+	// QyooModel::carrierAmbiguityTransform().
+	bool estimateCarrierProjectiveClass();
 	bool affineFallbackGeometryQualified(double maximumAngleDeviationDegrees) const;
 	bool projectiveOutlineError(const ProjectiveTransform &transform,
 	                           double &rmsError, double &maxError) const;
@@ -160,7 +171,14 @@ public:
 	// Transformation from Qyoo model space to image space
 	QyooMatrix mat;
 	ProjectiveTransform projectiveMat;
+	ProjectiveTransform carrierProjectiveMat;
 	bool projectiveValid;
+	bool carrierProjectiveValid;
+	int carrierCirclePointCount;
+	int carrierFirstEdgePointCount;
+	int carrierSecondEdgePointCount;
+	double carrierProjectiveRmsError;
+	double carrierProjectiveMaxError;
 	int projectiveIterations;
 	int projectiveCorrespondenceCount;
 	double projectiveRmsError;
