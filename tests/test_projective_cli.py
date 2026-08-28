@@ -43,10 +43,23 @@ def main() -> int:
             failures.append(f"{case_id}: affine {affine} != frozen {frozen_affine}")
         if projective != [expected]:
             failures.append(f"{case_id}: projective {projective} != expected {[expected]}")
+        default_process = subprocess.run(
+            [str(detector), str(image), "--verbose"],
+            cwd=detector.parents[1],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        default_output = default_process.stdout + default_process.stderr
+        default_bits = re.findall(r"^Binary = ([01]{36})\s*$", default_output, re.MULTILINE)
+        if default_process.returncode != 0:
+            failures.append(f"{case_id}: default exit {default_process.returncode}")
+        if default_bits != [expected]:
+            failures.append(f"{case_id}: default {default_bits} != expected {[expected]}")
     if failures:
         print("\n".join(f"FAIL: {failure}" for failure in failures), file=sys.stderr)
         return 1
-    print("PASS: frozen affine control retained; five focused projective decodes exact")
+    print("PASS: frozen affine control retained; shadow and default projective decodes exact")
     return 0
 
 

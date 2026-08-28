@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Check if verbose flag is set
-    NormalizationMode normalization = NormalizationAffine;
+    NormalizationMode normalization = NormalizationProjective;
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
         if (arg == "--v" || arg == "--verbose") {
