@@ -64,6 +64,10 @@ def prove_case(detector: Path, image: Path, should_accept: bool) -> None:
         assert feature["rejection_reason"] in REASON_CODES
         assert 0.0 <= feature["area_fraction"] <= 1.0
         assert 0.0 <= feature["aspect_ratio"] <= 1.0
+        assert len(feature["near_corner_edges"]) == feature["near_corner_edge_count"]
+        for edge in feature["near_corner_edges"]:
+            assert edge["length_pixels"] >= 0.0
+            assert 0.0 <= edge["angle_degrees"] <= 360.0
 
 
 def main() -> int:

@@ -130,6 +130,8 @@ public:
 	double aspectRatio,areaFraction;
 	size_t originalPointCount,decimatedPointCount;
 	int nearCornerEdgeCount;
+	std::vector<double> nearCornerEdgeLengths;
+	std::vector<double> nearCornerEdgeAngles;
 	double cornerAngleDifference;
 	int modelClosePointCount,modelTotalPointCount;
 	double modelCloseFraction;

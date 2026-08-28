@@ -775,6 +775,14 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
         output << ",\"size_check_passed\":" << jsonBoolean(feature.sizeCheckPassed);
         output << ",\"corner_selected\":" << jsonBoolean(feature.cornerValid);
         output << ",\"near_corner_edge_count\":" << feature.nearCornerEdgeCount;
+        output << ",\"near_corner_edges\":[";
+        for (size_t edgeIndex = 0; edgeIndex < feature.nearCornerEdgeLengths.size(); edgeIndex++)
+        {
+            if (edgeIndex != 0) output << ',';
+            output << "{\"length_pixels\":" << feature.nearCornerEdgeLengths[edgeIndex]
+                   << ",\"angle_degrees\":" << feature.nearCornerEdgeAngles[edgeIndex] << '}';
+        }
+        output << ']';
         output << ",\"corner_angle_difference_degrees\":" << feature.cornerAngleDifference;
         output << ",\"corner_geometry_passed\":" << jsonBoolean(feature.cornerGeometryPassed);
         output << ",\"model_close_point_count\":" << feature.modelClosePointCount;

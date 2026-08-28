@@ -314,6 +314,13 @@ void Feature::refineCornerAndFindAngles(int searchDist2)
 	// Start out invalid and see where we go
 	edgesValid = false;
 	nearCornerEdgeCount = static_cast<int>(edges.size());
+	nearCornerEdgeLengths.clear();
+	nearCornerEdgeAngles.clear();
+	for (const LongEdge &edge : edges)
+	{
+		nearCornerEdgeLengths.push_back(sqrt(edge.len2()));
+		nearCornerEdgeAngles.push_back(edge.calcAngle());
+	}
 	if (edges.size() >= 2)
 	{
 		std::sort(edges.begin(),edges.end(),compFunction);
