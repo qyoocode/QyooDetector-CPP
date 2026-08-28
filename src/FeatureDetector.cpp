@@ -167,15 +167,17 @@ void FeatureDotsProcessor::findDotsGray() {
 
     // Create an RGB image to draw on
     gdImagePtr outImg = gdImageCreateTrueColor(grayImg->getSizeX(), grayImg->getSizeY());
+    gdImagePtr grayVisualization = grayImg->makeGDImage();
 
     // Copy the grayscale data into the RGB image (mapping grayscale values to RGB)
     for (int x = 0; x < grayImg->getSizeX(); x++) {
         for (int y = 0; y < grayImg->getSizeY(); y++) {
-            int grayValue = gdImageGetPixel(grayImg->makeGDImage(), x, y);
+            int grayValue = gdImageGetPixel(grayVisualization, x, y);
             int rgbColor = gdImageColorAllocate(outImg, grayValue, grayValue, grayValue);
             gdImageSetPixel(outImg, x, y, rgbColor);
         }
     }
+    gdImageDestroy(grayVisualization);
 
     // Allocate colors for drawing
     int colorRed = gdImageColorAllocate(outImg, 255, 0, 0);
