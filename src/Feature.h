@@ -171,6 +171,10 @@ public:
 	double projectiveRefinedOutlineRmsError;
 	double projectiveRefinedOutlineMaxError;
 	double projectiveRefinedOutlineNearFraction;
+	// Decision-neutral copies of the interior correspondences already used by
+	// projective refinement. They are exposed only by visual diagnostics.
+	std::vector<ProjectivePoint> projectiveDotModelPoints;
+	std::vector<ProjectivePoint> projectiveDotImagePoints;
 	bool affineNormalizationAttempted;
 	bool affineNormalizationAvailable;
 	bool affinePayloadExtracted;

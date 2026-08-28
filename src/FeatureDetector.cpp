@@ -133,6 +133,8 @@ static bool refineProjectiveFromVisibleDots(RawImageGray8 *affinePatch,
 
     // The accepted silhouette supplies localization; isolated payload circles
     // supply the missing interior correspondences without assuming bit values.
+    feature->projectiveDotModelPoints = modelPoints;
+    feature->projectiveDotImagePoints = imagePoints;
     feature->projectiveDotCorrespondenceCount = static_cast<int>(modelPoints.size());
     if (modelPoints.size() < 4)
         return false;
@@ -190,6 +192,12 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
     resultLabel = inResultLabel;
     fallbackPolicy = inFallbackPolicy;
     normalizationAvailable = false;
+	normalizedPatchToInputValid = false;
+	affinePilotToInputValid = false;
+	backgroundAverage = -1;
+	for (int row = 0; row < QYOOSIZE; row++)
+		for (int position = 0; position < QYOOSIZE; position++)
+			sampledBits[row][position] = -1;
 	if (normalization == NormalizationAffine)
 		feat->affineNormalizationAttempted = true;
 	else if (normalization == NormalizationProjective)
@@ -231,6 +239,8 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
             feat->mat(1, 0), feat->mat(1, 1), feat->mat(1, 2),
             feat->mat(2, 0), feat->mat(2, 1), feat->mat(2, 2));
         ProjectiveTransform affineNormalizedToImage = inputScale * affineFeature * dotTranslation * dotScale;
+        affinePilotToInput = affineNormalizedToImage;
+        affinePilotToInputValid = true;
         RawImageGray8 affinePilot(sizeX, sizeY);
         if (!affinePilot.copyFromGDImageProjective(inImage, affineNormalizedToImage))
             return;
@@ -292,6 +302,8 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
             : affineNormalizedToImage;
         if (!grayImg->copyFromGDImageProjective(inImage, normalizedToImage))
             return;
+        normalizedPatchToInput = normalizedToImage;
+        normalizedPatchToInputValid = true;
     }
     else
     {
@@ -305,6 +317,11 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
         QyooMatrix inverseForMat = forMat;
         inverseForMat.inverse();
         grayImg->copyFromGDImage(inImage, inverseForMat);
+        normalizedPatchToInput = ProjectiveTransform(
+            forMat(0, 0), forMat(0, 1), forMat(0, 2),
+            forMat(1, 0), forMat(1, 1), forMat(1, 2),
+            forMat(2, 0), forMat(2, 1), forMat(2, 2));
+        normalizedPatchToInputValid = true;
     }
     grayImg->runContrast();
     normalizationAvailable = true;
@@ -404,6 +421,7 @@ void FeatureDotsProcessor::findDotsGray() {
     ConvolutionFilterInt *radFilter = MakeRadiusFilter(PixelsPerDot, PixelsPerDot / 2);
 
     int avgPixel = calcAvgPixel(grayImg, PixelsPerDot / 2, PixelsPerDot / 2, radFilter);
+    backgroundAverage = avgPixel;
 
     int numRow = qyooModel->numRows();
     int numPos = qyooModel->numPos();
@@ -438,10 +456,12 @@ void FeatureDotsProcessor::findDotsGray() {
 
             if (isAdot(grayImg, posPix, rowPix, PixelsPerDot, radFilter, avgPixel)) {
                 resChar |= 1 << pos;
+                sampledBits[row][pos] = 1;
 
                 // Draw a green circle around the detected dot
                 gdImageArc(outImg, posPix, rowPix, PixelsPerDot, PixelsPerDot, 0, 360, colorGreen);
             } else {
+                sampledBits[row][pos] = 0;
                 // If the dot represents a 0, draw a red X
                 gdImageLine(outImg, posPix - 5, rowPix - 5, posPix + 5, rowPix + 5, colorRed);    // Draw slash left
                 gdImageLine(outImg, posPix - 5, rowPix + 5, posPix + 5, rowPix - 5, colorRed);    // Draw slash right
@@ -633,6 +653,74 @@ static const char *normalizationModeCode(NormalizationMode normalization)
     return "unknown";
 }
 
+static std::string visualArtifactStem(size_t featureIndex,
+                                      const FeatureDotsProcessor *dots)
+{
+    std::ostringstream output;
+    output << "feature_" << std::setw(4) << std::setfill('0') << featureIndex
+           << '_' << normalizationModeCode(dots->normalization);
+    return output.str();
+}
+
+static bool writeGrayPng(RawImageGray8 *image, const std::string &path)
+{
+    if (!image)
+        return false;
+    gdImagePtr pngImage = image->makeGDImage();
+    if (!pngImage)
+        return false;
+    FILE *file = fopen(path.c_str(), "wb");
+    if (!file)
+    {
+        gdImageDestroy(pngImage);
+        return false;
+    }
+    gdImagePng(pngImage, file);
+    fclose(file);
+    gdImageDestroy(pngImage);
+    return true;
+}
+
+bool FeatureProcessor::writeVisualDebugArtifacts(gdImagePtr inImage,
+                                                 const std::string &outputDirectory) const
+{
+    bool success = true;
+    std::string separator = outputDirectory.empty() || outputDirectory.back() == '/'
+        ? "" : "/";
+    for (const FeatureDotsProcessor *dots : featureDots)
+    {
+        size_t featureIndex = feats.size();
+        for (size_t index = 0; index < feats.size(); index++)
+            if (&feats[index] == dots->feat)
+            {
+                featureIndex = index;
+                break;
+            }
+        if (featureIndex == feats.size())
+        {
+            success = false;
+            continue;
+        }
+        std::string stem = visualArtifactStem(featureIndex, dots);
+        if (dots->normalizationAvailable)
+            success = writeGrayPng(dots->grayImg,
+                                   outputDirectory + separator + stem + "_rectified.png") && success;
+        if (dots->affinePilotToInputValid)
+        {
+            RawImageGray8 pilot(dots->grayImg->getSizeX(), dots->grayImg->getSizeY());
+            if (!pilot.copyFromGDImageProjective(inImage, dots->affinePilotToInput))
+                success = false;
+            else
+            {
+                pilot.runContrast();
+                success = writeGrayPng(&pilot,
+                                       outputDirectory + separator + stem + "_pilot.png") && success;
+            }
+        }
+    }
+    return success;
+}
+
 static const char *fallbackPolicyCode(ProjectiveFallbackPolicy policy)
 {
     switch (policy)
@@ -706,9 +794,72 @@ static const char *normalizationOutcomeCode(const Feature &feature,
         ? "projective_normalization_unavailable" : "not_attempted";
 }
 
+static void writeProjectiveMatrixJson(std::ostringstream &output,
+                                      const ProjectiveTransform &matrix)
+{
+    output << '[';
+    for (int row = 0; row < 3; row++)
+    {
+        if (row != 0) output << ',';
+        output << '[';
+        for (int column = 0; column < 3; column++)
+        {
+            if (column != 0) output << ',';
+            output << matrix.at(row, column);
+        }
+        output << ']';
+    }
+    output << ']';
+}
+
+static void writeAffineMatrixJson(std::ostringstream &output,
+                                  const QyooMatrix &matrix)
+{
+    output << '[';
+    for (int row = 0; row < 3; row++)
+    {
+        if (row != 0) output << ',';
+        output << '[';
+        for (int column = 0; column < 3; column++)
+        {
+            if (column != 0) output << ',';
+            output << matrix(row, column);
+        }
+        output << ']';
+    }
+    output << ']';
+}
+
+static void writeFeaturePointsJson(std::ostringstream &output,
+                                   const std::list<Feature::Point> &points)
+{
+    output << '[';
+    bool first = true;
+    for (const Feature::Point &point : points)
+    {
+        if (!first) output << ',';
+        first = false;
+        output << '[' << point.x << ',' << point.y << ']';
+    }
+    output << ']';
+}
+
+static void writeProjectivePointsJson(std::ostringstream &output,
+                                      const std::vector<ProjectivePoint> &points)
+{
+    output << '[';
+    for (size_t index = 0; index < points.size(); index++)
+    {
+        if (index != 0) output << ',';
+        output << '[' << points[index].x << ',' << points[index].y << ']';
+    }
+    output << ']';
+}
+
 std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
                                               NormalizationMode normalization,
-                                              ProjectiveFallbackPolicy fallbackPolicy) const
+                                              ProjectiveFallbackPolicy fallbackPolicy,
+                                              bool includeVisualGeometry) const
 {
     const FeatureRejectionReason reasons[] = {
         FeatureNotRejected,
@@ -760,6 +911,7 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
            << ",\"height\":" << grayImg->getSizeY() << "}";
     output << ",\"normalization_requested\":" << jsonString(normalizationModeCode(normalization));
     output << ",\"fallback_policy_requested\":" << jsonString(fallbackPolicyCode(fallbackPolicy));
+    output << ",\"visual_debug_geometry_included\":" << jsonBoolean(includeVisualGeometry);
     output << ",\"stages\":{";
     output << "\"raw_feature_count\":" << feats.size();
     output << ",\"size_pass_count\":" << sizePassed;
@@ -821,7 +973,14 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
         output << ",\"projective_outline_rms_pixels\":" << feature.projectiveRmsError;
         output << ",\"projective_outline_max_error_pixels\":" << feature.projectiveMaxError;
         output << ",\"projective_dot_correspondence_count\":" << feature.projectiveDotCorrespondenceCount;
+        output << ",\"projective_dot_rms_pixels\":" << feature.projectiveDotRmsError;
         output << ",\"projective_dot_refined\":" << jsonBoolean(feature.projectiveDotRefined);
+        output << ",\"projective_refined_outline_rms_pixels\":"
+               << feature.projectiveRefinedOutlineRmsError;
+        output << ",\"projective_refined_outline_max_error_pixels\":"
+               << feature.projectiveRefinedOutlineMaxError;
+        output << ",\"projective_refined_outline_near_fraction\":"
+               << feature.projectiveRefinedOutlineNearFraction;
         output << ",\"projective_affine_fallback_used\":" << jsonBoolean(feature.projectiveAffineFallbackUsed);
         output << ",\"projective_affine_fallback_rejected\":" << jsonBoolean(feature.projectiveAffineFallbackRejected);
         output << ",\"affine_normalization_attempted\":" << jsonBoolean(feature.affineNormalizationAttempted);
@@ -832,6 +991,131 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
                << jsonBoolean(feature.affinePayloadExtracted || feature.projectivePayloadExtracted);
         output << ",\"normalization_outcome\":"
                << jsonString(normalizationOutcomeCode(feature, normalization));
+        if (includeVisualGeometry)
+        {
+            bool detailAvailable = feature.sizeCheckPassed || feature.cornerGeometryPassed ||
+                                   feature.outlineCheckPassed || feature.valid;
+            output << ",\"visual_geometry\":{\"detail_available\":"
+                   << jsonBoolean(detailAvailable);
+            output << ",\"coordinate_space\":\"detector_input_pixels\"";
+            output << ",\"original_contour_points\":";
+            if (detailAvailable) writeFeaturePointsJson(output, feature.origPoints);
+            else output << "[]";
+            output << ",\"decimated_contour_points\":";
+            if (detailAvailable) writeFeaturePointsJson(output, feature.points);
+            else output << "[]";
+            output << ",\"distinctive_corner\":";
+            if (feature.cornerValid)
+                output << '[' << feature.cornX << ',' << feature.cornY << ']';
+            else
+                output << "null";
+            output << ",\"corner_edges\":";
+            if (feature.edgesValid)
+            {
+                output << "[{\"from\":[" << feature.cornX << ',' << feature.cornY
+                       << "],\"to\":[" << feature.e0.x << ',' << feature.e0.y
+                       << "]},{\"from\":[" << feature.cornX << ',' << feature.cornY
+                       << "],\"to\":[" << feature.e1.x << ',' << feature.e1.y << "]}]";
+            }
+            else
+                output << "[]";
+            output << ",\"far_edge_points\":";
+            if (feature.farEdgesValid)
+                output << "[[" << feature.far0.x << ',' << feature.far0.y << "],["
+                       << feature.far1.x << ',' << feature.far1.y << "]]";
+            else
+                output << "[]";
+            output << ",\"affine_model_to_input\":";
+            if (feature.farEdgesValid) writeAffineMatrixJson(output, feature.mat);
+            else output << "null";
+            output << ",\"projective_model_to_input\":";
+            if (feature.projectiveCorrespondenceCount > 0)
+                writeProjectiveMatrixJson(output, feature.projectiveMat);
+            else
+                output << "null";
+            output << ",\"projective_dot_model_points\":";
+            writeProjectivePointsJson(output, feature.projectiveDotModelPoints);
+            output << ",\"projective_dot_input_points\":";
+            writeProjectivePointsJson(output, feature.projectiveDotImagePoints);
+            output << ",\"normalizations\":[";
+            bool firstNormalization = true;
+            for (const FeatureDotsProcessor *dots : featureDots)
+            {
+                if (dots->feat != &feature)
+                    continue;
+                if (!firstNormalization) output << ',';
+                firstNormalization = false;
+                std::string stem = visualArtifactStem(index, dots);
+                const char *strategy = "rejected";
+                if (dots->normalizationAvailable)
+                {
+                    if (dots->normalization == NormalizationAffine)
+                        strategy = "affine";
+                    else if (feature.projectiveDotRefined)
+                        strategy = "projective";
+                    else if (feature.projectiveAffineFallbackUsed)
+                        strategy = fallbackPolicy == QualifiedAffineFallback
+                            ? "qualified_affine_fallback" : "legacy_affine_fallback";
+                    else
+                        strategy = "projective";
+                }
+                output << "{\"requested\":" << jsonString(normalizationModeCode(dots->normalization));
+                output << ",\"strategy\":" << jsonString(strategy);
+                output << ",\"available\":" << jsonBoolean(dots->normalizationAvailable);
+                output << ",\"observed_bits\":"
+                       << (dots->qyooBits.empty() ? "null" : jsonString(dots->qyooBits));
+                output << ",\"rectified_patch_file\":";
+                if (dots->normalizationAvailable)
+                    output << jsonString(stem + "_rectified.png");
+                else
+                    output << "null";
+                output << ",\"affine_pilot_file\":";
+                if (dots->affinePilotToInputValid)
+                    output << jsonString(stem + "_pilot.png");
+                else
+                    output << "null";
+                output << ",\"normalized_patch_to_input\":";
+                if (dots->normalizedPatchToInputValid)
+                    writeProjectiveMatrixJson(output, dots->normalizedPatchToInput);
+                else
+                    output << "null";
+                output << ",\"affine_pilot_to_input\":";
+                if (dots->affinePilotToInputValid)
+                    writeProjectiveMatrixJson(output, dots->affinePilotToInput);
+                else
+                    output << "null";
+                output << ",\"patch_size\":{\"width\":" << dots->grayImg->getSizeX()
+                       << ",\"height\":" << dots->grayImg->getSizeY() << '}';
+                output << ",\"background_sample\":{\"center\":[" << PixelsPerDot / 2
+                       << ',' << PixelsPerDot / 2 << "],\"average_gray\":";
+                if (dots->backgroundAverage >= 0) output << dots->backgroundAverage;
+                else output << "null";
+                output << '}';
+                output << ",\"sample_region\":{\"shape\":\"strict_disk\",\"radius_pixels\":"
+                       << PixelsPerDot / 2 << ",\"cell_pitch_pixels\":" << PixelsPerDot << '}';
+                output << ",\"cells\":[";
+                bool firstCell = true;
+                for (int row = 0; row < QYOOSIZE; row++)
+                    for (int position = 0; position < QYOOSIZE; position++)
+                    {
+                        if (dots->sampledBits[row][position] < 0)
+                            continue;
+                        if (!firstCell) output << ',';
+                        firstCell = false;
+                        int bitIndex = (QYOOSIZE - row - 1) * QYOOSIZE +
+                                       (QYOOSIZE - position - 1);
+                        int centerX = PixelsPerDot * (position + 1) + PixelsPerDot / 2;
+                        int centerY = PixelsPerDot * (row + 1) + PixelsPerDot / 2;
+                        output << "{\"sampling_row\":" << row
+                               << ",\"sampling_column\":" << position
+                               << ",\"bit_index\":" << bitIndex
+                               << ",\"center\":[" << centerX << ',' << centerY << ']'
+                               << ",\"decoded\":" << dots->sampledBits[row][position] << '}';
+                    }
+                output << "]}";
+            }
+            output << "]}";
+        }
         output << '}';
     }
     output << "]}";

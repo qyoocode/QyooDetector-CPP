@@ -39,6 +39,7 @@ PROJECTIVE_CONTROL_RESULTS ?= ../recovery/task-04/raw-evidence/00-control/task01
 PERSPECTIVE_SWEEP_MANIFEST ?= ../recovery/task-04/perspective-sweep/manifest.json
 DIAGNOSTICS_ACCEPTED_IMAGE ?= ../recovery/task-02/corpus/images/expanded_raw_zero.png
 DIAGNOSTICS_REJECTED_IMAGE ?= ../recovery/task-01/artifacts/detector-baseline/images/rotation_135deg.png
+VISUAL_DIAGNOSTICS_TRASH ?= ../recovery/trash/detector-visuals/test-visual-diagnostics
 CORNER_PAIR_IMAGE ?= ../recovery/task-01/artifacts/detector-baseline/images/blur_4sigma.png
 CORNER_PAIR_EXPECTED_BITS ?= 101111101010011110111010111001101100
 CORNER_PAIR_NEGATIVE ?= ../recovery/task-05/negative-corpus/images/negative_development_circle_square_20.png
@@ -137,6 +138,10 @@ test-projective-cli: $(EXECUTABLE)
 .PHONY: test-diagnostics
 test-diagnostics: $(EXECUTABLE)
 	python3 $(TEST_DIR)/test_rejection_diagnostics.py $(EXECUTABLE) $(DIAGNOSTICS_ACCEPTED_IMAGE) $(DIAGNOSTICS_REJECTED_IMAGE)
+
+.PHONY: test-visual-diagnostics
+test-visual-diagnostics: $(EXECUTABLE)
+	python3 $(TEST_DIR)/test_visual_diagnostics.py $(EXECUTABLE) $(DIAGNOSTICS_ACCEPTED_IMAGE) $(DIAGNOSTICS_REJECTED_IMAGE) $(VISUAL_DIAGNOSTICS_TRASH)
 
 .PHONY: test-fallback-policy
 test-fallback-policy: $(EXECUTABLE)

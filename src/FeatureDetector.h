@@ -73,10 +73,16 @@ protected:
 
   // Array of detected Qyoo rows
   int qyooRows[QYOOSIZE];
+  int sampledBits[QYOOSIZE][QYOOSIZE];
+  int backgroundAverage;
   NormalizationMode normalization;
   std::string resultLabel;
   bool normalizationAvailable;
   ProjectiveFallbackPolicy fallbackPolicy;
+  ProjectiveTransform normalizedPatchToInput;
+  bool normalizedPatchToInputValid;
+  ProjectiveTransform affinePilotToInput;
+  bool affinePilotToInputValid;
 };
 
 /*
@@ -111,7 +117,13 @@ class FeatureProcessor
   // Optional decision-neutral diagnostics for test/recovery harnesses.
   std::string diagnosticsJson(const std::string &imageId,
                               NormalizationMode normalization,
-                              ProjectiveFallbackPolicy fallbackPolicy) const;
+                              ProjectiveFallbackPolicy fallbackPolicy,
+                              bool includeVisualGeometry = false) const;
+
+  // Write exact grayscale patches after all detector decisions have completed.
+  // This is opt-in instrumentation and is never consulted by detection.
+  bool writeVisualDebugArtifacts(gdImagePtr inImage,
+                                 const std::string &outputDirectory) const;
 
  public:
   ConvolutionFilterInt *gaussFilter;  // Gaussian filter to reduce noise in the image

@@ -33,7 +33,8 @@ int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <image_file> [--v|--verbose] "
                   << "[--normalization affine|projective|shadow] "
-                  << "[--fallback-policy legacy-affine|reject|qualified] [--diagnostics]" << std::endl;
+                  << "[--fallback-policy legacy-affine|reject|qualified] [--diagnostics] "
+                  << "[--visual-debug-dir DIRECTORY]" << std::endl;
         return 1;
     }
 
@@ -41,11 +42,19 @@ int main(int argc, char* argv[]) {
     NormalizationMode normalization = NormalizationProjective;
     ProjectiveFallbackPolicy fallbackPolicy = QualifiedAffineFallback;
     bool diagnostics = false;
+    std::string visualDebugDirectory;
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
         if (arg == "--v" || arg == "--verbose") {
             verbose = true;  // Enable verbose logging
         } else if (arg == "--diagnostics") {
+            diagnostics = true;
+        } else if (arg == "--visual-debug-dir") {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: --visual-debug-dir requires an existing directory." << std::endl;
+                return 1;
+            }
+            visualDebugDirectory = argv[++i];
             diagnostics = true;
         } else if (arg == "--normalization") {
             if (i + 1 >= argc) {
@@ -127,8 +136,14 @@ int main(int argc, char* argv[]) {
     }
 
     if (diagnostics)
+    {
+        if (!visualDebugDirectory.empty() &&
+            !proc->writeVisualDebugArtifacts(theImage, visualDebugDirectory))
+            std::cerr << "Error: one or more visual debug artifacts could not be written." << std::endl;
         std::cout << "Diagnostics JSON = "
-                  << proc->diagnosticsJson(image_file, normalization, fallbackPolicy) << std::endl;
+                  << proc->diagnosticsJson(image_file, normalization, fallbackPolicy,
+                                           !visualDebugDirectory.empty()) << std::endl;
+    }
 
     // Clean up
     gdImageDestroy(theImage); // Destroy the image to avoid memory leaks

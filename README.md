@@ -78,6 +78,18 @@ Verbose mode reports image dimensions, traced features, corner/model decisions, 
 
 Focused correctness checks are available as Make targets: `test-aspect`, `test-contrast`, `test-background-average`, `test-resource-stress`, and `test-image-input`. The recovery workspace's frozen detector scoreboard remains the behavioral regression authority.
 
+### Decision-Neutral Visual Debug Export
+
+`--visual-debug-dir` enables the raw geometry and normalized-patch export used by the recovery workspace's human visual report:
+
+```bash
+bin/qyoo_detector path/to/qyoo.jpg --visual-debug-dir /path/to/artifacts
+```
+
+The option implies structured diagnostics and writes the exact 88×88 grayscale patch used for payload sampling, plus an affine pilot when one exists. Its JSON record includes candidate contours, orientation geometry, projective correspondences and transforms, normalization outcome, and all 36 actual sample decisions. Export happens after detector decisions and does not change detection or decoding behavior.
+
+The human renderer, one-image command, corpus command, and static report are documented at `../recovery/detector-visuals/README.md`. Run `make test-visual-diagnostics` for the focused decision-neutrality check; its disposable output is retained under the workspace recovery trash policy.
+
 ## Legacy Server-Side Usage
 
 This project, in its original form, was used for server-side image processing on Linux environments. The command-line only version preserves that legacy, removing all dependencies on Objective-C or UIKit, making it fully compatible with C++.

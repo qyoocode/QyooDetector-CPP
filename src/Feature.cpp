@@ -580,6 +580,8 @@ bool Feature::estimateProjectiveTransform(int iterations)
 	projectiveDotRefined = false;
 	projectiveDotCorrespondenceCount = 0;
 	projectiveDotRmsError = 0.0;
+	projectiveDotModelPoints.clear();
+	projectiveDotImagePoints.clear();
 	projectiveRefinedOutlineRmsError = 0.0;
 	projectiveRefinedOutlineMaxError = 0.0;
 	projectiveRefinedOutlineNearFraction = 0.0;
