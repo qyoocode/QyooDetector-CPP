@@ -28,6 +28,7 @@ IMAGE_INPUT_TEST = $(TEST_BIN_DIR)/test_image_input
 PROJECTIVE_TRANSFORM_TEST = $(TEST_BIN_DIR)/test_projective_transform
 PROJECTIVE_ESTIMATE_TEST = $(TEST_BIN_DIR)/test_feature_projective_estimate
 PROJECTIVE_SAMPLING_TEST = $(TEST_BIN_DIR)/test_projective_sampling
+CARRIER_AMBIGUITY_TEST = $(TEST_BIN_DIR)/test_carrier_ambiguity
 RESOURCE_STRESS_IMAGE ?= ../recovery/task-02/corpus/images/expanded_raw_zero.png
 RESOURCE_STRESS_ITERATIONS ?= 50
 RESOURCE_STRESS_LIMIT_BYTES ?= 67108864
@@ -94,6 +95,9 @@ $(PROJECTIVE_ESTIMATE_TEST): $(TEST_DIR)/test_feature_projective_estimate.cpp $(
 $(PROJECTIVE_SAMPLING_TEST): $(TEST_DIR)/test_projective_sampling.cpp $(OBJ_DIR)/Geometry.o $(OBJ_DIR)/RawImage.o | $(TEST_BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< $(OBJ_DIR)/Geometry.o $(OBJ_DIR)/RawImage.o -o $@ $(LDFLAGS)
 
+$(CARRIER_AMBIGUITY_TEST): $(TEST_DIR)/test_carrier_ambiguity.cpp $(OBJ_DIR)/QyooModel.o $(OBJ_DIR)/Geometry.o | $(TEST_BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(OBJ_DIR)/QyooModel.o $(OBJ_DIR)/Geometry.o -o $@ $(LDFLAGS)
+
 .PHONY: test-aspect
 test-aspect: $(ASPECT_TEST)
 	$(ASPECT_TEST)
@@ -130,6 +134,10 @@ test-projective-estimate: $(PROJECTIVE_ESTIMATE_TEST)
 .PHONY: test-projective-sampling
 test-projective-sampling: $(PROJECTIVE_SAMPLING_TEST)
 	$(PROJECTIVE_SAMPLING_TEST)
+
+.PHONY: test-carrier-ambiguity
+test-carrier-ambiguity: $(CARRIER_AMBIGUITY_TEST)
+	$(CARRIER_AMBIGUITY_TEST)
 
 .PHONY: test-projective-cli
 test-projective-cli: $(EXECUTABLE)

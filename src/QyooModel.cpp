@@ -10,6 +10,7 @@
 #include <iostream>
 #include <sstream>
 #include <bitset>
+#include <cmath>
 #include "QyooModel.h"
 
 // Instantiate the singleton
@@ -21,6 +22,31 @@ QyooModel *QyooModel::getQyooModel()
 		theModel = new QyooModel();
 
 	return theModel;
+}
+
+ProjectiveTransform QyooModel::carrierAmbiguityTransform(double amount)
+{
+	// In unit-circle coordinates, the three fixed null directions are the two
+	// line/conic tangencies and their tangent-line intersection. Scaling the
+	// first two basis directions by exp(+s) and exp(-s) preserves the conic and
+	// all three fixed points. Conjugating back to Qyoo model space gives the
+	// exact one-parameter automorphism of the teardrop carrier.
+	ProjectiveTransform unitFromModel(2.0, 0.0, -1.0,
+	                                  0.0, 2.0, -1.0,
+	                                  0.0, 0.0, 1.0);
+	ProjectiveTransform modelFromUnit(0.5, 0.0, 0.5,
+	                                  0.0, 0.5, 0.5,
+	                                  0.0, 0.0, 1.0);
+	ProjectiveTransform fixedBasis(0.0, -1.0, -1.0,
+	                               -1.0, 0.0, -1.0,
+	                               1.0, 1.0, 1.0);
+	ProjectiveTransform inverseFixedBasis(1.0, 0.0, 1.0,
+	                                      0.0, 1.0, 1.0,
+	                                      -1.0, -1.0, -1.0);
+	ProjectiveTransform boost(std::exp(amount), 0.0, 0.0,
+	                          0.0, std::exp(-amount), 0.0,
+	                          0.0, 0.0, 1.0);
+	return modelFromUnit * fixedBasis * boost * inverseFixedBasis * unitFromModel;
 }
 
 // Set up the model according to the dots and the

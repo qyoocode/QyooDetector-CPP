@@ -35,6 +35,12 @@ public:
 	// Return the radius of a dot in model space
 	float dotRadius();
 
+	// One-parameter projective automorphism of the recognizable carrier.
+	// It fixes the distinctive corner and both line/circle tangencies while
+	// moving the payload grid. Task 07 uses this family explicitly instead of
+	// manufacturing an unsupported fourth outline correspondence.
+	static ProjectiveTransform carrierAmbiguityTransform(double amount);
+
 	// Calculate the extents of the dots
 	// If there's a border, add in one more row of dots
 	void dotBounds(SimplePoint2D &ll,SimplePoint2D &ur,bool withBorder=false);
