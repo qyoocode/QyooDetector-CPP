@@ -159,6 +159,8 @@ void Feature::findCorner()
 const float MinAspectRatio = 0.5;
 // Or too small
 const float MinAreaFraction = 0.03,MaxAreaFraction = 1.0;
+const float LargeImageMinAreaFraction = 0.003;
+const int MinFeatureDimensionPixels = 128;
 
 // Calculate the overall size and check against the size of
 // the image as well as the overall aspect ratio of the feature
@@ -206,7 +208,9 @@ void Feature::checkSizeAndPosition(int imgSizeX,int imgSizeY)
 	float featArea = sizeX*sizeY;
 	float areaFrac = featArea / totalArea;
 	areaFraction = areaFrac;
-	if (areaFrac < MinAreaFraction)
+	bool absoluteScaleQualified = areaFrac >= LargeImageMinAreaFraction &&
+		std::min(sizeX, sizeY) >= MinFeatureDimensionPixels;
+	if (areaFrac < MinAreaFraction && !absoluteScaleQualified)
 	{
 		valid = false;
 		rejectionReason = FeatureTooSmall;

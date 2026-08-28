@@ -20,6 +20,7 @@ OBJ_FILES = $(SRC_FILES:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 EXECUTABLE = $(BIN_DIR)/qyoo_detector
 CORE_OBJ_FILES = $(filter-out $(OBJ_DIR)/main.o,$(OBJ_FILES))
 ASPECT_TEST = $(TEST_BIN_DIR)/test_feature_aspect_ratio
+SCALE_GATE_TEST = $(TEST_BIN_DIR)/test_feature_scale_gate
 CONTRAST_TEST = $(TEST_BIN_DIR)/test_raw_image_contrast
 SENTINEL_TEST = $(TEST_BIN_DIR)/test_background_average
 RESOURCE_TEST = $(TEST_BIN_DIR)/test_detector_resource_stress
@@ -68,6 +69,9 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(HEADER_FILES) | $(OBJ_DIR)
 $(ASPECT_TEST): $(TEST_DIR)/test_feature_aspect_ratio.cpp $(CORE_OBJ_FILES) | $(TEST_BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< $(CORE_OBJ_FILES) -o $@ $(LDFLAGS)
 
+$(SCALE_GATE_TEST): $(TEST_DIR)/test_feature_scale_gate.cpp $(CORE_OBJ_FILES) | $(TEST_BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(CORE_OBJ_FILES) -o $@ $(LDFLAGS)
+
 $(CONTRAST_TEST): $(TEST_DIR)/test_raw_image_contrast.cpp $(OBJ_DIR)/RawImage.o $(OBJ_DIR)/Geometry.o | $(TEST_BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< $(OBJ_DIR)/RawImage.o $(OBJ_DIR)/Geometry.o -o $@ $(LDFLAGS)
 
@@ -92,6 +96,10 @@ $(PROJECTIVE_SAMPLING_TEST): $(TEST_DIR)/test_projective_sampling.cpp $(OBJ_DIR)
 .PHONY: test-aspect
 test-aspect: $(ASPECT_TEST)
 	$(ASPECT_TEST)
+
+.PHONY: test-scale-gate
+test-scale-gate: $(SCALE_GATE_TEST)
+	$(SCALE_GATE_TEST)
 
 .PHONY: test-contrast
 test-contrast: $(CONTRAST_TEST)
