@@ -20,7 +20,7 @@
 class Feature
 {
 public:
-	Feature() { valid = true; cornerValid = false;  edgesValid = false;  farEdgesValid = false; closed = false;};
+	Feature() { valid = true; cornerValid = false;  edgesValid = false;  farEdgesValid = false; closed = false; projectiveValid = false;};
 	Feature(const Feature &that) { *this = that; }
 	~Feature() { };
     
@@ -50,6 +50,10 @@ public:
 	
 	// Check the actual points against where we think they ought to be
 	bool modelCheck(float nearDist2,float nearFrac);
+
+	// Fit the accepted outline to the existing Qyoo model without changing
+	// candidate acceptance. The historical affine transform is the initializer.
+	bool estimateProjectiveTransform(int iterations = 12);
 				
 	// Single point structure.  Yeah, should be elsewhere.
 	class Point
@@ -81,6 +85,12 @@ public:
 
 	// Transformation from Qyoo model space to image space
 	QyooMatrix mat;
+	ProjectiveTransform projectiveMat;
+	bool projectiveValid;
+	int projectiveIterations;
+	int projectiveCorrespondenceCount;
+	double projectiveRmsError;
+	double projectiveMaxError;
 	
 	// The raw bits for the dots, if they've been read
 	std::vector<unsigned char> dotBits;
@@ -100,4 +110,3 @@ protected:
 	bool pointModelCheck(QyooMatrix *invTrans,float x,float y,float nearDist2);
     
 };
-

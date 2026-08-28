@@ -24,6 +24,7 @@ SENTINEL_TEST = $(TEST_BIN_DIR)/test_background_average
 RESOURCE_TEST = $(TEST_BIN_DIR)/test_detector_resource_stress
 IMAGE_INPUT_TEST = $(TEST_BIN_DIR)/test_image_input
 PROJECTIVE_TRANSFORM_TEST = $(TEST_BIN_DIR)/test_projective_transform
+PROJECTIVE_ESTIMATE_TEST = $(TEST_BIN_DIR)/test_feature_projective_estimate
 RESOURCE_STRESS_IMAGE ?= ../recovery/task-02/corpus/images/expanded_raw_zero.png
 RESOURCE_STRESS_ITERATIONS ?= 50
 RESOURCE_STRESS_LIMIT_BYTES ?= 67108864
@@ -72,6 +73,9 @@ $(IMAGE_INPUT_TEST): $(TEST_DIR)/test_image_input.cpp $(OBJ_DIR)/ImageLoader.o |
 $(PROJECTIVE_TRANSFORM_TEST): $(TEST_DIR)/test_projective_transform.cpp $(OBJ_DIR)/Geometry.o | $(TEST_BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< $(OBJ_DIR)/Geometry.o -o $@ $(LDFLAGS)
 
+$(PROJECTIVE_ESTIMATE_TEST): $(TEST_DIR)/test_feature_projective_estimate.cpp $(OBJ_DIR)/Feature.o $(OBJ_DIR)/Geometry.o $(OBJ_DIR)/RawImage.o | $(TEST_BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(OBJ_DIR)/Feature.o $(OBJ_DIR)/Geometry.o $(OBJ_DIR)/RawImage.o -o $@ $(LDFLAGS)
+
 .PHONY: test-aspect
 test-aspect: $(ASPECT_TEST)
 	$(ASPECT_TEST)
@@ -96,6 +100,10 @@ test-image-input: $(IMAGE_INPUT_TEST) $(EXECUTABLE)
 .PHONY: test-projective-transform
 test-projective-transform: $(PROJECTIVE_TRANSFORM_TEST)
 	$(PROJECTIVE_TRANSFORM_TEST)
+
+.PHONY: test-projective-estimate
+test-projective-estimate: $(PROJECTIVE_ESTIMATE_TEST)
+	$(PROJECTIVE_ESTIMATE_TEST)
 
 # Clean up generated files
 clean:

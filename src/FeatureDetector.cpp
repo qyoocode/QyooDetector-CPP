@@ -322,6 +322,17 @@ int FeatureProcessor::findQyoo()
         if (feat.valid)
         {
             logVerbose("Qyoo shape feature found!");
+			feat.estimateProjectiveTransform();
+			if (feat.projectiveValid)
+			{
+				logVerbose("Projective outline fit: " + std::to_string(feat.projectiveCorrespondenceCount) +
+				           " points, RMS " + std::to_string(feat.projectiveRmsError) +
+				           ", max " + std::to_string(feat.projectiveMaxError));
+			}
+			else
+			{
+				logVerbose("Projective outline fit unavailable.");
+			}
             numFound++;
         }
     }

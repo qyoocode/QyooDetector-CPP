@@ -420,3 +420,113 @@ bool Feature::modelCheck(float nearDist2,float nearFrac)
 		valid = false;
 	return modelChecked;
 }
+
+static ProjectivePoint nearestQyooOutlinePoint(const ProjectivePoint &point)
+{
+	auto nearestOnSegment = [](const ProjectivePoint &value,
+	                           const ProjectivePoint &start,
+	                           const ProjectivePoint &end) {
+		double dirX = end.x - start.x;
+		double dirY = end.y - start.y;
+		double denominator = dirX * dirX + dirY * dirY;
+		double amount = ((value.x - start.x) * dirX + (value.y - start.y) * dirY) / denominator;
+		amount = std::max(0.0, std::min(1.0, amount));
+		return ProjectivePoint(start.x + amount * dirX, start.y + amount * dirY);
+	};
+	auto distance2 = [](const ProjectivePoint &left, const ProjectivePoint &right) {
+		double dx = left.x - right.x;
+		double dy = left.y - right.y;
+		return dx * dx + dy * dy;
+	};
+
+	ProjectivePoint best = nearestOnSegment(point, ProjectivePoint(0.0, 0.0), ProjectivePoint(0.5, 0.0));
+	double bestDistance = distance2(point, best);
+	ProjectivePoint otherEdge = nearestOnSegment(point, ProjectivePoint(0.0, 0.0), ProjectivePoint(0.0, 0.5));
+	double otherDistance = distance2(point, otherEdge);
+	if (otherDistance < bestDistance)
+	{
+		best = otherEdge;
+		bestDistance = otherDistance;
+	}
+
+	double circleX = point.x - 0.5;
+	double circleY = point.y - 0.5;
+	double circleLength = hypot(circleX, circleY);
+	if (circleLength > 1e-12)
+	{
+		ProjectivePoint circlePoint(0.5 + 0.5 * circleX / circleLength,
+		                            0.5 + 0.5 * circleY / circleLength);
+		// The Qyoo outline uses three quarters of the circle. The missing
+		// upper-left quarter is replaced by the two straight corner edges.
+		if (circlePoint.x > 0.5 || circlePoint.y > 0.5)
+		{
+			double circleDistance = distance2(point, circlePoint);
+			if (circleDistance < bestDistance)
+				best = circlePoint;
+		}
+	}
+	return best;
+}
+
+bool Feature::estimateProjectiveTransform(int iterations)
+{
+	projectiveValid = false;
+	projectiveIterations = 0;
+	projectiveCorrespondenceCount = 0;
+	projectiveRmsError = 0.0;
+	projectiveMaxError = 0.0;
+	if (!valid || origPoints.size() < 4 || iterations < 1)
+		return false;
+
+	ProjectiveTransform current(
+		mat(0, 0), mat(0, 1), mat(0, 2),
+		mat(1, 0), mat(1, 1), mat(1, 2),
+		mat(2, 0), mat(2, 1), mat(2, 2));
+	for (int iteration = 0; iteration < iterations; iteration++)
+	{
+		ProjectiveTransform inverse;
+		if (!current.inverse(inverse))
+			return false;
+		std::vector<ProjectivePoint> modelPoints;
+		std::vector<ProjectivePoint> imagePoints;
+		modelPoints.reserve(origPoints.size());
+		imagePoints.reserve(origPoints.size());
+		for (const Point &point : origPoints)
+		{
+			ProjectivePoint modelPoint;
+			if (!inverse.map(ProjectivePoint(point.x, point.y), modelPoint))
+				return false;
+			modelPoints.push_back(nearestQyooOutlinePoint(modelPoint));
+			imagePoints.push_back(ProjectivePoint(point.x, point.y));
+		}
+		ProjectiveTransform fitted;
+		if (!ProjectiveTransform::fromCorrespondences(modelPoints, imagePoints, fitted))
+			return false;
+		current = fitted;
+		projectiveIterations = iteration + 1;
+		projectiveCorrespondenceCount = static_cast<int>(modelPoints.size());
+	}
+
+	ProjectiveTransform inverse;
+	if (!current.inverse(inverse))
+		return false;
+	double squaredError = 0.0;
+	double maximumError = 0.0;
+	for (const Point &point : origPoints)
+	{
+		ProjectivePoint modelPoint, fittedPoint;
+		if (!inverse.map(ProjectivePoint(point.x, point.y), modelPoint))
+			return false;
+		ProjectivePoint outlinePoint = nearestQyooOutlinePoint(modelPoint);
+		if (!current.map(outlinePoint, fittedPoint))
+			return false;
+		double error = hypot(fittedPoint.x - point.x, fittedPoint.y - point.y);
+		squaredError += error * error;
+		maximumError = std::max(maximumError, error);
+	}
+	projectiveMat = current;
+	projectiveRmsError = sqrt(squaredError / origPoints.size());
+	projectiveMaxError = maximumError;
+	projectiveValid = std::isfinite(projectiveRmsError) && std::isfinite(projectiveMaxError);
+	return projectiveValid;
+}
