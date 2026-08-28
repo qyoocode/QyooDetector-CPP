@@ -2,27 +2,10 @@
 #include <string>
 #include <gd.h>
 #include "FeatureDetector.h"
+#include "ImageLoader.h"
 
 // Global verbose flag for controlling debug output
 bool verbose = false;
-
-// Function to load a PNG image using gd
-gdImagePtr loadImage(const std::string& fileName) {
-    FILE *infile = fopen(fileName.c_str(), "rb");
-    if (!infile) {
-        std::cerr << "Error: Unable to open image file: " << fileName << std::endl;
-        return nullptr;
-    }
-
-    gdImagePtr img = gdImageCreateFromPng(infile);
-    fclose(infile);
-
-    if (!img) {
-        std::cerr << "Error: Unable to load image: " << fileName << std::endl;
-    }
-
-    return img;
-}
 
 // Function to handle verbose logging
 void logVerbose(const std::string& message) {

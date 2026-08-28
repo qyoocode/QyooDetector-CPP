@@ -22,9 +22,13 @@ ASPECT_TEST = $(TEST_BIN_DIR)/test_feature_aspect_ratio
 CONTRAST_TEST = $(TEST_BIN_DIR)/test_raw_image_contrast
 SENTINEL_TEST = $(TEST_BIN_DIR)/test_background_average
 RESOURCE_TEST = $(TEST_BIN_DIR)/test_detector_resource_stress
+IMAGE_INPUT_TEST = $(TEST_BIN_DIR)/test_image_input
 RESOURCE_STRESS_IMAGE ?= ../recovery/task-02/corpus/images/expanded_raw_zero.png
 RESOURCE_STRESS_ITERATIONS ?= 50
 RESOURCE_STRESS_LIMIT_BYTES ?= 67108864
+IMAGE_INPUT_PNG ?= ../recovery/task-02/corpus/images/expanded_raw_zero.png
+IMAGE_INPUT_JPG ?= ../recovery/task-03/focused-tests/image-input/expanded_raw_zero.jpg
+IMAGE_INPUT_JPEG ?= ../recovery/task-03/focused-tests/image-input/expanded_raw_zero.jpeg
 
 # Target to build everything
 all: $(EXECUTABLE)
@@ -61,6 +65,9 @@ $(SENTINEL_TEST): $(TEST_DIR)/test_background_average.cpp $(SRC_DIR)/FeatureDete
 $(RESOURCE_TEST): $(TEST_DIR)/test_detector_resource_stress.cpp $(CORE_OBJ_FILES) | $(TEST_BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< $(CORE_OBJ_FILES) -o $@ $(LDFLAGS)
 
+$(IMAGE_INPUT_TEST): $(TEST_DIR)/test_image_input.cpp $(OBJ_DIR)/ImageLoader.o | $(TEST_BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(OBJ_DIR)/ImageLoader.o -o $@ $(LDFLAGS)
+
 .PHONY: test-aspect
 test-aspect: $(ASPECT_TEST)
 	$(ASPECT_TEST)
@@ -76,6 +83,11 @@ test-background-average: $(SENTINEL_TEST)
 .PHONY: test-resource-stress
 test-resource-stress: $(RESOURCE_TEST)
 	$(RESOURCE_TEST) $(RESOURCE_STRESS_IMAGE) $(RESOURCE_STRESS_ITERATIONS) $(RESOURCE_STRESS_LIMIT_BYTES)
+
+.PHONY: test-image-input
+test-image-input: $(IMAGE_INPUT_TEST) $(EXECUTABLE)
+	$(IMAGE_INPUT_TEST) $(IMAGE_INPUT_PNG) $(IMAGE_INPUT_JPG) $(IMAGE_INPUT_JPEG)
+	python3 $(TEST_DIR)/test_cli_image_input.py $(EXECUTABLE) $(IMAGE_INPUT_PNG) $(IMAGE_INPUT_JPG) $(IMAGE_INPUT_JPEG)
 
 # Clean up generated files
 clean:
