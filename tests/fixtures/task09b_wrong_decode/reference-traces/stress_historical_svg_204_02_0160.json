@@ -1,0 +1,744 @@
+{
+  "schema": "org.qyoo.detector.task09b-reference-trace",
+  "schema_version": 1,
+  "case_id": "stress_historical_svg_204_02_0160",
+  "image_size": {
+    "width": 1024,
+    "height": 768
+  },
+  "stages": {
+    "raw_feature_count": 3484,
+    "size_pass_count": 2,
+    "corner_selected_count": 2,
+    "corner_geometry_pass_count": 1,
+    "outline_validation_pass_count": 1,
+    "accepted_candidate_count": 1,
+    "projective_outline_available_count": 1,
+    "affine_normalization_attempted_count": 0,
+    "projective_normalization_attempted_count": 1,
+    "affine_fallback_count": 0,
+    "affine_fallback_rejected_count": 0,
+    "normalization_available_count": 1,
+    "payload_extracted_count": 1
+  },
+  "accepted_feature": {
+    "feature_index": 1228,
+    "bounds": {
+      "min_x": 478,
+      "min_y": 254,
+      "max_x": 668,
+      "max_y": 440,
+      "width": 190,
+      "height": 186
+    },
+    "model_close_fraction": 0.919896640827,
+    "outline": {
+      "rms_pixels": 3.02595173998,
+      "max_error_pixels": 14.4461236808
+    },
+    "carrier_projective_class": {
+      "circle_point_count": 263,
+      "first_edge_point_count": 60,
+      "second_edge_point_count": 64,
+      "rms_pixels": 2.6754670289,
+      "max_error_pixels": 9.52605411293
+    },
+    "normalization_strategy": "carrier_template_projective",
+    "normalized_patch_to_input": [
+      [
+        306.865802858,
+        -240.227923474,
+        671.289730625
+      ],
+      [
+        437.663709252,
+        -182.237230797,
+        362.526758333
+      ],
+      [
+        0.72593745197,
+        -0.169703867477,
+        1.01687061016
+      ]
+    ],
+    "carrier_template": {
+      "attempted": true,
+      "available": true,
+      "ambiguity_amount": 0.21,
+      "best_loss_pixels": 2241,
+      "alternative_payload_loss_pixels": 2295,
+      "distinct_payloads": 8,
+      "search_steps": 101,
+      "fitted_payload": "000000000000000000000000000000001000",
+      "ambiguous_rejected": false,
+      "search_boundary_rejected": false,
+      "sampler_disagreement_rejected": false
+    },
+    "patch_size": {
+      "width": 88,
+      "height": 88
+    },
+    "background_sample": {
+      "center": [
+        5,
+        5
+      ],
+      "average_gray": 8
+    },
+    "sample_region": {
+      "shape": "strict_disk",
+      "radius_pixels": 5,
+      "cell_pitch_pixels": 11
+    },
+    "cells": [
+      {
+        "sampling_row": 0,
+        "sampling_column": 0,
+        "bit_index": 35,
+        "center": [
+          16,
+          16
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 8,
+        "mean_gray": 8,
+        "median_gray": 8
+      },
+      {
+        "sampling_row": 0,
+        "sampling_column": 1,
+        "bit_index": 34,
+        "center": [
+          27,
+          16
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 8,
+        "mean_gray": 8,
+        "median_gray": 8
+      },
+      {
+        "sampling_row": 0,
+        "sampling_column": 2,
+        "bit_index": 33,
+        "center": [
+          38,
+          16
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 6,
+        "mean_gray": 9.98550724638,
+        "median_gray": 8
+      },
+      {
+        "sampling_row": 0,
+        "sampling_column": 3,
+        "bit_index": 32,
+        "center": [
+          49,
+          16
+        ],
+        "decoded": 1,
+        "valid_sample_count": 69,
+        "matching_sample_count": 69,
+        "match_ratio": 1,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": 0.600000023842,
+        "center_gray": 247,
+        "mean_gray": 204.043478261,
+        "median_gray": 213
+      },
+      {
+        "sampling_row": 0,
+        "sampling_column": 4,
+        "bit_index": 31,
+        "center": [
+          60,
+          16
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 6,
+        "match_ratio": 0.0869565233588,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.313043475151,
+        "center_gray": 29,
+        "mean_gray": 39.9130434783,
+        "median_gray": 26
+      },
+      {
+        "sampling_row": 0,
+        "sampling_column": 5,
+        "bit_index": 30,
+        "center": [
+          71,
+          16
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 13,
+        "mean_gray": 18.7391304348,
+        "median_gray": 14
+      },
+      {
+        "sampling_row": 1,
+        "sampling_column": 0,
+        "bit_index": 29,
+        "center": [
+          16,
+          27
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 8,
+        "mean_gray": 8,
+        "median_gray": 8
+      },
+      {
+        "sampling_row": 1,
+        "sampling_column": 1,
+        "bit_index": 28,
+        "center": [
+          27,
+          27
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 8,
+        "mean_gray": 8,
+        "median_gray": 8
+      },
+      {
+        "sampling_row": 1,
+        "sampling_column": 2,
+        "bit_index": 27,
+        "center": [
+          38,
+          27
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 8,
+        "mean_gray": 7.85507246377,
+        "median_gray": 8
+      },
+      {
+        "sampling_row": 1,
+        "sampling_column": 3,
+        "bit_index": 26,
+        "center": [
+          49,
+          27
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 4,
+        "match_ratio": 0.0579710155725,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.342028975487,
+        "center_gray": 14,
+        "mean_gray": 24.2028985507,
+        "median_gray": 8
+      },
+      {
+        "sampling_row": 1,
+        "sampling_column": 4,
+        "bit_index": 25,
+        "center": [
+          60,
+          27
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 7,
+        "mean_gray": 7.76811594203,
+        "median_gray": 7
+      },
+      {
+        "sampling_row": 1,
+        "sampling_column": 5,
+        "bit_index": 24,
+        "center": [
+          71,
+          27
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 6,
+        "mean_gray": 7.47826086957,
+        "median_gray": 7
+      },
+      {
+        "sampling_row": 2,
+        "sampling_column": 0,
+        "bit_index": 23,
+        "center": [
+          16,
+          38
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 8,
+        "mean_gray": 8,
+        "median_gray": 8
+      },
+      {
+        "sampling_row": 2,
+        "sampling_column": 1,
+        "bit_index": 22,
+        "center": [
+          27,
+          38
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 8,
+        "mean_gray": 8,
+        "median_gray": 8
+      },
+      {
+        "sampling_row": 2,
+        "sampling_column": 2,
+        "bit_index": 21,
+        "center": [
+          38,
+          38
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 8,
+        "mean_gray": 7.53623188406,
+        "median_gray": 8
+      },
+      {
+        "sampling_row": 2,
+        "sampling_column": 3,
+        "bit_index": 20,
+        "center": [
+          49,
+          38
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 6,
+        "mean_gray": 6.20289855072,
+        "median_gray": 6
+      },
+      {
+        "sampling_row": 2,
+        "sampling_column": 4,
+        "bit_index": 19,
+        "center": [
+          60,
+          38
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 8,
+        "mean_gray": 7.53623188406,
+        "median_gray": 8
+      },
+      {
+        "sampling_row": 2,
+        "sampling_column": 5,
+        "bit_index": 18,
+        "center": [
+          71,
+          38
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 8,
+        "mean_gray": 7.94202898551,
+        "median_gray": 8
+      },
+      {
+        "sampling_row": 3,
+        "sampling_column": 0,
+        "bit_index": 17,
+        "center": [
+          16,
+          49
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 8,
+        "mean_gray": 7.30434782609,
+        "median_gray": 8
+      },
+      {
+        "sampling_row": 3,
+        "sampling_column": 1,
+        "bit_index": 16,
+        "center": [
+          27,
+          49
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 6,
+        "mean_gray": 6.01449275362,
+        "median_gray": 6
+      },
+      {
+        "sampling_row": 3,
+        "sampling_column": 2,
+        "bit_index": 15,
+        "center": [
+          38,
+          49
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 8,
+        "mean_gray": 6.95652173913,
+        "median_gray": 7
+      },
+      {
+        "sampling_row": 3,
+        "sampling_column": 3,
+        "bit_index": 14,
+        "center": [
+          49,
+          49
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 6,
+        "mean_gray": 6,
+        "median_gray": 6
+      },
+      {
+        "sampling_row": 3,
+        "sampling_column": 4,
+        "bit_index": 13,
+        "center": [
+          60,
+          49
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 6,
+        "mean_gray": 6.10144927536,
+        "median_gray": 6
+      },
+      {
+        "sampling_row": 3,
+        "sampling_column": 5,
+        "bit_index": 12,
+        "center": [
+          71,
+          49
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 6,
+        "mean_gray": 6,
+        "median_gray": 6
+      },
+      {
+        "sampling_row": 4,
+        "sampling_column": 0,
+        "bit_index": 11,
+        "center": [
+          16,
+          60
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 6,
+        "mean_gray": 6.3768115942,
+        "median_gray": 6
+      },
+      {
+        "sampling_row": 4,
+        "sampling_column": 1,
+        "bit_index": 10,
+        "center": [
+          27,
+          60
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 8,
+        "mean_gray": 7.98550724638,
+        "median_gray": 8
+      },
+      {
+        "sampling_row": 4,
+        "sampling_column": 2,
+        "bit_index": 9,
+        "center": [
+          38,
+          60
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 12,
+        "match_ratio": 0.173913046718,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.226086959243,
+        "center_gray": 34,
+        "mean_gray": 47.1739130435,
+        "median_gray": 21
+      },
+      {
+        "sampling_row": 4,
+        "sampling_column": 3,
+        "bit_index": 8,
+        "center": [
+          49,
+          60
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 3,
+        "match_ratio": 0.0434782616794,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.356521755457,
+        "center_gray": 6,
+        "mean_gray": 23.6956521739,
+        "median_gray": 8
+      },
+      {
+        "sampling_row": 4,
+        "sampling_column": 4,
+        "bit_index": 7,
+        "center": [
+          60,
+          60
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 6,
+        "mean_gray": 6,
+        "median_gray": 6
+      },
+      {
+        "sampling_row": 4,
+        "sampling_column": 5,
+        "bit_index": 6,
+        "center": [
+          71,
+          60
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 6,
+        "mean_gray": 6.52173913043,
+        "median_gray": 6
+      },
+      {
+        "sampling_row": 5,
+        "sampling_column": 0,
+        "bit_index": 5,
+        "center": [
+          16,
+          71
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 13,
+        "match_ratio": 0.188405796885,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.211594209075,
+        "center_gray": 7,
+        "mean_gray": 45.9420289855,
+        "median_gray": 13
+      },
+      {
+        "sampling_row": 5,
+        "sampling_column": 1,
+        "bit_index": 4,
+        "center": [
+          27,
+          71
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 6,
+        "mean_gray": 6.05797101449,
+        "median_gray": 6
+      },
+      {
+        "sampling_row": 5,
+        "sampling_column": 2,
+        "bit_index": 3,
+        "center": [
+          38,
+          71
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 5,
+        "match_ratio": 0.0724637657404,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.327536225319,
+        "center_gray": 6,
+        "mean_gray": 25.0869565217,
+        "median_gray": 8
+      },
+      {
+        "sampling_row": 5,
+        "sampling_column": 3,
+        "bit_index": 2,
+        "center": [
+          49,
+          71
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 12,
+        "match_ratio": 0.173913046718,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.226086959243,
+        "center_gray": 43,
+        "mean_gray": 47.8985507246,
+        "median_gray": 23
+      },
+      {
+        "sampling_row": 5,
+        "sampling_column": 4,
+        "bit_index": 1,
+        "center": [
+          60,
+          71
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 6,
+        "mean_gray": 7.04347826087,
+        "median_gray": 6
+      },
+      {
+        "sampling_row": 5,
+        "sampling_column": 5,
+        "bit_index": 0,
+        "center": [
+          71,
+          71
+        ],
+        "decoded": 0,
+        "valid_sample_count": 69,
+        "matching_sample_count": 0,
+        "match_ratio": 0,
+        "decision_boundary": 0.40000000596,
+        "decision_margin": -0.40000000596,
+        "center_gray": 10,
+        "mean_gray": 6.92753623188,
+        "median_gray": 6
+      }
+    ]
+  }
+}

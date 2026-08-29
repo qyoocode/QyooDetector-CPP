@@ -34,6 +34,7 @@ MULTISCALE_CLI_TEST = $(TEST_DIR)/test_multiscale_cli.py
 MULTISCALE_CLI_IMAGE ?= ../recovery/task-08/real-camera/incoming/jpeg/screen_frontal_near_raw_zero.jpeg
 MULTISCALE_CLI_EXPECTED ?= 000000000000000000000000000000000000
 CARRIER_TEMPLATE_CLI_TEST = $(TEST_DIR)/test_carrier_template_cli.py
+TASK09B_WRONG_DECODE_TEST = $(TEST_DIR)/test_task09b_wrong_decode_cli.py
 RESOURCE_STRESS_IMAGE ?= ../recovery/task-02/corpus/images/expanded_raw_zero.png
 RESOURCE_STRESS_ITERATIONS ?= 50
 RESOURCE_STRESS_LIMIT_BYTES ?= 67108864
@@ -158,6 +159,10 @@ test-multiscale-cli: $(EXECUTABLE)
 .PHONY: test-carrier-template-cli
 test-carrier-template-cli: $(EXECUTABLE)
 	python3 $(CARRIER_TEMPLATE_CLI_TEST) $(EXECUTABLE) ../recovery/task-07/payload-density/manifest.json
+
+.PHONY: test-task09b-wrong-decodes
+test-task09b-wrong-decodes: $(EXECUTABLE)
+	python3 $(TASK09B_WRONG_DECODE_TEST) $(EXECUTABLE)
 
 .PHONY: test-projective-cli
 test-projective-cli: $(EXECUTABLE)
