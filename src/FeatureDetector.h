@@ -47,7 +47,8 @@ class FeatureDotsProcessor
   FeatureDotsProcessor(gdImagePtr inImage, FeatureProcessor *featProc, Feature *feat,
                        NormalizationMode normalization = NormalizationAffine,
                        const std::string &resultLabel = "",
-                       ProjectiveFallbackPolicy fallbackPolicy = QualifiedAffineFallback);
+                       ProjectiveFallbackPolicy fallbackPolicy = QualifiedAffineFallback,
+                       bool emitResult = true);
 
   // Destructor: Cleans up resources used by the processor.
   ~FeatureDotsProcessor();
@@ -60,7 +61,7 @@ protected:
   // Initialize the processor with the given image, feature processor, and feature.
   void init(gdImagePtr inImage, FeatureProcessor *featProc, Feature *feat,
             NormalizationMode normalization, const std::string &resultLabel,
-            ProjectiveFallbackPolicy fallbackPolicy);
+            ProjectiveFallbackPolicy fallbackPolicy, bool emitResult);
 
  public:
   RawImageGray8 *grayImg;   // Grayscale version of the image
@@ -102,6 +103,7 @@ protected:
   int carrierTemplateDistinctPayloads;
   int carrierTemplateSearchSteps;
   std::string carrierTemplatePayload;
+  bool emitResult;
 };
 
 /*
@@ -131,7 +133,8 @@ class FeatureProcessor
 
   // Find and process the dots in the valid Qyoo features.
   void findDots(gdImagePtr inImage, NormalizationMode normalization = NormalizationCarrierTemplate,
-                ProjectiveFallbackPolicy fallbackPolicy = QualifiedAffineFallback);
+                ProjectiveFallbackPolicy fallbackPolicy = QualifiedAffineFallback,
+                bool emitResults = true);
 
   // Optional decision-neutral diagnostics for test/recovery harnesses.
   std::string diagnosticsJson(const std::string &imageId,

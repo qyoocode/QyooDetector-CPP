@@ -337,15 +337,17 @@ static CarrierTemplateFit fitCarrierTemplate(gdImagePtr input,
 FeatureDotsProcessor::FeatureDotsProcessor(gdImagePtr inImage, FeatureProcessor *inFeatProc,
                                            Feature *inFeat, NormalizationMode inNormalization,
                                            const std::string &inResultLabel,
-                                           ProjectiveFallbackPolicy inFallbackPolicy)
+                                           ProjectiveFallbackPolicy inFallbackPolicy,
+                                           bool inEmitResult)
 {
-    init(inImage, inFeatProc, inFeat, inNormalization, inResultLabel, inFallbackPolicy);
+    init(inImage, inFeatProc, inFeat, inNormalization, inResultLabel,
+         inFallbackPolicy, inEmitResult);
 }
 
 // Initialize the dot processor
 void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc, Feature *inFeat,
                                 NormalizationMode inNormalization, const std::string &inResultLabel,
-                                ProjectiveFallbackPolicy inFallbackPolicy)
+                                ProjectiveFallbackPolicy inFallbackPolicy, bool inEmitResult)
 {
     grayImg = nullptr;
     gaussImg = nullptr;
@@ -355,6 +357,7 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
     normalization = inNormalization;
     resultLabel = inResultLabel;
     fallbackPolicy = inFallbackPolicy;
+    emitResult = inEmitResult;
     normalizationAvailable = false;
 	normalizedPatchToInputValid = false;
     affinePilotToInputValid = false;
@@ -788,10 +791,12 @@ void FeatureDotsProcessor::findDotsGray() {
         std::cerr << "Error: qyooBits exceeds 64 bits, cannot convert to unsigned long long." << std::endl;
     } else {
         std::string prefix = resultLabel.empty() ? "" : resultLabel + " ";
-        std::cout << prefix << "Binary = " << qyooBits << std::endl;
+        if (emitResult)
+            std::cout << prefix << "Binary = " << qyooBits << std::endl;
 
         feat->dotDecStr = std::to_string(std::stoull(qyooBits, nullptr, 2));  // Convert binary string to decimal
-        std::cout << prefix << "Qyoo value = " << feat->dotDecStr << std::endl;
+        if (emitResult)
+            std::cout << prefix << "Qyoo value = " << feat->dotDecStr << std::endl;
 		if (normalization == NormalizationAffine)
 			feat->affinePayloadExtracted = true;
 		else if (normalization == NormalizationProjective ||
@@ -910,7 +915,7 @@ int FeatureProcessor::findQyoo()
 
 // Detect dots in the valid Qyoo features
 void FeatureProcessor::findDots(gdImagePtr inImage, NormalizationMode normalization,
-                                ProjectiveFallbackPolicy fallbackPolicy)
+                                ProjectiveFallbackPolicy fallbackPolicy, bool emitResults)
 {
     for (auto &feat : feats)
     {
@@ -919,17 +924,20 @@ void FeatureProcessor::findDots(gdImagePtr inImage, NormalizationMode normalizat
             if (normalization == NormalizationShadow)
             {
                 auto *affineDots = new FeatureDotsProcessor(inImage, this, &feat,
-                                                            NormalizationAffine, "", fallbackPolicy);
+                                                            NormalizationAffine, "", fallbackPolicy,
+                                                            emitResults);
                 affineDots->findDotsGray();
                 featureDots.push_back(affineDots);
                 auto *projectiveDots = new FeatureDotsProcessor(inImage, this, &feat,
-                                                                NormalizationProjective, "Projective", fallbackPolicy);
+                                                                NormalizationProjective, "Projective", fallbackPolicy,
+                                                                emitResults);
                 projectiveDots->findDotsGray();
                 featureDots.push_back(projectiveDots);
             }
             else
             {
-                auto *featDots = new FeatureDotsProcessor(inImage, this, &feat, normalization, "", fallbackPolicy);
+                auto *featDots = new FeatureDotsProcessor(inImage, this, &feat, normalization,
+                                                          "", fallbackPolicy, emitResults);
                 featDots->findDotsGray();
                 featureDots.push_back(featDots);
             }

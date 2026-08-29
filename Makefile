@@ -29,6 +29,10 @@ PROJECTIVE_TRANSFORM_TEST = $(TEST_BIN_DIR)/test_projective_transform
 PROJECTIVE_ESTIMATE_TEST = $(TEST_BIN_DIR)/test_feature_projective_estimate
 PROJECTIVE_SAMPLING_TEST = $(TEST_BIN_DIR)/test_projective_sampling
 CARRIER_AMBIGUITY_TEST = $(TEST_BIN_DIR)/test_carrier_ambiguity
+MULTISCALE_LOCALIZATION_TEST = $(TEST_BIN_DIR)/test_multiscale_localization
+MULTISCALE_CLI_TEST = $(TEST_DIR)/test_multiscale_cli.py
+MULTISCALE_CLI_IMAGE ?= ../recovery/task-08/real-camera/incoming/jpeg/screen_frontal_near_raw_zero.jpeg
+MULTISCALE_CLI_EXPECTED ?= 000000000000000000000000000000000000
 CARRIER_TEMPLATE_CLI_TEST = $(TEST_DIR)/test_carrier_template_cli.py
 RESOURCE_STRESS_IMAGE ?= ../recovery/task-02/corpus/images/expanded_raw_zero.png
 RESOURCE_STRESS_ITERATIONS ?= 50
@@ -99,6 +103,9 @@ $(PROJECTIVE_SAMPLING_TEST): $(TEST_DIR)/test_projective_sampling.cpp $(OBJ_DIR)
 $(CARRIER_AMBIGUITY_TEST): $(TEST_DIR)/test_carrier_ambiguity.cpp $(OBJ_DIR)/QyooModel.o $(OBJ_DIR)/Geometry.o | $(TEST_BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< $(OBJ_DIR)/QyooModel.o $(OBJ_DIR)/Geometry.o -o $@ $(LDFLAGS)
 
+$(MULTISCALE_LOCALIZATION_TEST): $(TEST_DIR)/test_multiscale_localization.cpp $(OBJ_DIR)/MultiscaleLocalization.o | $(TEST_BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(OBJ_DIR)/MultiscaleLocalization.o -o $@ $(LDFLAGS)
+
 .PHONY: test-aspect
 test-aspect: $(ASPECT_TEST)
 	$(ASPECT_TEST)
@@ -139,6 +146,14 @@ test-projective-sampling: $(PROJECTIVE_SAMPLING_TEST)
 .PHONY: test-carrier-ambiguity
 test-carrier-ambiguity: $(CARRIER_AMBIGUITY_TEST)
 	$(CARRIER_AMBIGUITY_TEST)
+
+.PHONY: test-multiscale-localization
+test-multiscale-localization: $(MULTISCALE_LOCALIZATION_TEST)
+	$(MULTISCALE_LOCALIZATION_TEST)
+
+.PHONY: test-multiscale-cli
+test-multiscale-cli: $(EXECUTABLE)
+	python3 $(MULTISCALE_CLI_TEST) $(EXECUTABLE) $(MULTISCALE_CLI_IMAGE) $(MULTISCALE_CLI_EXPECTED)
 
 .PHONY: test-carrier-template-cli
 test-carrier-template-cli: $(EXECUTABLE)
