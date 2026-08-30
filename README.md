@@ -1,30 +1,31 @@
-# QyooDetector (Command-Line Version)
+# Qyoo Detector Core
 
-This is a **command-line only** version of the QyooDetector project, designed for server-side image processing. The package has been stripped of all non-command-line code, with a focus on C++ implementations of grayscale image processing and feature detection.
+This repository builds the production Qyoo detector as a reusable library and
+also provides the historical command-line interface as a library consumer. The
+portable boundary is a small C ABI; the detector implementation remains C++.
 
 ## Overview
 
-This version of **QyooDetector** is optimized for running on Linux or other command-line environments where server-side image processing is needed. It leverages the **GD** and **CML** libraries to perform various operations such as image transformation, contrast adjustments, and feature detection on grayscale images.
+The public API accepts decoded pixel buffers. PNG/JPEG filename decoding remains
+in the CLI adapter and is not part of the detector ABI. GD is an internal build
+dependency and no GD type appears in the public header.
 
-### Key Features
+### Build outputs
 
-- Grayscale image processing using raw 8-bit and 32-bit image data.
-- Contrast enhancement for images.
-- Image flipping, saving, and matrix-based transformations.
-- C++ based, making it suitable for integration in server environments.
-  
-This version uses **GD** to read PNG and JPEG images and write diagnostic PNGs, and **CML** for matrix transformations.
+- `lib/libqyoo_detector.a` — static core library
+- `lib/libqyoo_detector.dylib` on macOS or `lib/libqyoo_detector.so` on Linux — shared core library
+- `include/qyoo_detector.h` — public C API
+- `bin/qyoo_detector` — PNG/JPEG command-line adapter
 
-### Structure
-
-All project files are located in the src/ folder. This version removes all dependencies on Objective-C or UIKit, making it compatible for C++-based server environments.
+The shared library exports only the `qyoo_*` C symbols. Internal detector
+classes and historical recovery controls are not part of the production ABI.
 
 ## Installation and Setup
 
 ### Dependencies
 
-This version requires the following libraries:
-- **GD**: For image manipulation (reading, saving, flipping).
+This version requires a C++11 compiler, `make`, `pkg-config`, and **GD**. CML is
+bundled in this repository.
 
 On a typical Linux system, you can install these libraries via your package manager:
 
@@ -33,17 +34,87 @@ On a typical Linux system, you can install these libraries via your package mana
 sudo apt-get install libgd-dev
 ```
 
-### Building the Project
+### Building
 
-To compile the project, navigate to the root of the repository and use the existing `Makefile` or another build system of your choice (e.g., `cmake`).
+To compile the project, navigate to the root of the repository and use the
+provided Makefile.
 
 ```bash
 make
 ```
 
-This will compile the project and output the qyoo_detector binary to the bin/ folder.
+This builds both libraries and the CLI. Individual targets are also available:
 
-### Usage
+```bash
+make library  # static library
+make shared   # shared library
+make bin/qyoo_detector
+```
+
+## Portable C API
+
+The production API is declared in `include/qyoo_detector.h`. It accepts `GRAY8`,
+`RGB24`, `BGR24`, `RGBA32`, or `BGRA32` rows with an explicit byte stride and
+buffer length. Alpha is ignored. The frozen production localization,
+normalization, sampling, and acceptance policies are selected internally; the
+API does not expose recovery profiles or codecs.
+
+```c
+#include <qyoo_detector.h>
+
+qyoo_detector_t *detector = NULL;
+qyoo_result_array_t found = {0};
+qyoo_image_t image = {0};
+
+image.struct_size = sizeof(image);
+image.width = width;
+image.height = height;
+image.stride_bytes = stride;
+image.pixel_format = QYOO_PIXEL_FORMAT_RGB24;
+image.pixels = pixels;
+image.buffer_size = pixel_buffer_size;
+
+if (qyoo_detector_create(&detector) == QYOO_STATUS_OK &&
+    qyoo_detector_detect(detector, &image, &found) == QYOO_STATUS_OK) {
+    if (found.outcome == QYOO_DETECTION_NO_QYOO) {
+        /* Safe rejection: processing succeeded and no Qyoo was decoded. */
+    } else {
+        for (size_t i = 0; i < found.count; ++i) {
+            uint64_t payload36 = found.results[i].payload;
+            qyoo_bounds_t bounds = found.results[i].bounds;
+            /* carrier_quadrilateral is in original-image pixel coordinates. */
+        }
+    }
+}
+
+qyoo_result_array_release(&found);
+qyoo_detector_destroy(detector);
+```
+
+The caller owns the pixel buffer and must keep it readable only for the duration
+of `qyoo_detector_detect`. The caller also owns each returned result allocation
+and must release it with `qyoo_result_array_release`; never free it directly or
+reuse a live result array as output to another call. Contexts are independent.
+Calls on one context are serialized internally, and calls on different contexts
+may run concurrently. A context must not be destroyed while a call is using it.
+
+`QYOO_STATUS_OK` means image processing completed. The result-array outcome then
+distinguishes no-Qyoo from decoded results. Invalid image metadata, allocation
+failure, and processing failure are separate non-OK statuses.
+
+For a direct API check, including malformed inputs, padded strides, repeated
+calls, multiple contexts, result cleanup, and a known payload, run:
+
+```bash
+make test-public-header test-public-api
+make test-sanitizers
+```
+
+Link C or C++ clients with `-Iinclude -Llib -lqyoo_detector`. Static-library
+consumers should use the C++ linker and include GD's link flags, for example
+`$(pkg-config --libs gdlib)`.
+
+## Command-line adapter
 
 Pass a PNG or JPEG image to the detector:
 
@@ -122,7 +193,9 @@ The human renderer, one-image command, corpus command, and static report are doc
 
 ## Legacy Server-Side Usage
 
-This project, in its original form, was used for server-side image processing on Linux environments. The command-line only version preserves that legacy, removing all dependencies on Objective-C or UIKit, making it fully compatible with C++.
+This project, in its original form, was used for server-side image processing
+on Linux environments. The command-line adapter preserves that workflow while
+the core remains independent of Objective-C and UIKit.
 
 It is capable of handling tasks like feature detection, contrast adjustment, and image manipulation using the GD library for image input/output and the CML library for matrix operations.
 
