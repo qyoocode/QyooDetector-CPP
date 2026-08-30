@@ -30,6 +30,14 @@ struct OriginalImageBounds
     double maxY;
 };
 
+struct OriginalImagePoint
+{
+    OriginalImagePoint(double inX = 0.0, double inY = 0.0) : x(inX), y(inY) { }
+
+    double x;
+    double y;
+};
+
 struct LocalizationCandidate
 {
     std::string payload;
@@ -39,6 +47,8 @@ struct LocalizationCandidate
     int carrierTemplateLoss = 0;
     int carrierTemplateGap = 0;
     bool requiresRasterConfirmation = false;
+    OriginalImagePoint carrierQuadrilateral[4];
+    bool carrierQuadrilateralValid = false;
     int attemptIndex = 0;
     int featureIndex = 0;
 };

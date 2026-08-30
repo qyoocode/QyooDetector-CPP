@@ -5,14 +5,27 @@
 #include <iostream>
 #include <string>
 
-// Global verbose flag declaration
-extern bool verbose;
+class DetectorLogger
+{
+public:
+    explicit DetectorLogger(bool enabled = false, std::ostream &output = std::cout)
+        : enabled_(enabled), output_(&output) { }
 
-// Function for logging verbose output
-inline void logVerbose(const std::string& message) {
-    if (verbose) {
-        std::cout << "Debug: " << message << std::endl;
+    void log(const std::string &message) const
+    {
+        if (enabled_ && output_)
+            *output_ << "Debug: " << message << std::endl;
     }
+
+private:
+    bool enabled_;
+    std::ostream *output_;
+};
+
+inline void logVerbose(const DetectorLogger *logger, const std::string &message)
+{
+    if (logger)
+        logger->log(message);
 }
 
 #endif // LOGGER_H

@@ -13,6 +13,8 @@
 #import "Geometry.h"
 #import "RawImage.h"
 
+class DetectorLogger;
+
 enum FeatureRejectionReason
 {
 	FeatureNotRejected,
@@ -80,7 +82,8 @@ public:
 		projectiveNormalizationAvailable = false;
 		projectiveAffineFallbackUsed = false;
 		projectiveAffineFallbackRejected = false;
-		projectivePayloadExtracted = false;
+			projectivePayloadExtracted = false;
+			logger = nullptr;
 	};
 	Feature(const Feature &that) { *this = that; }
 	~Feature() { };
@@ -135,6 +138,7 @@ public:
 		int x,y;
 	};
 	bool valid;        // Overally validity of the feature
+	DetectorLogger *logger; // Non-owning, context-local diagnostic logger
 	FeatureRejectionReason rejectionReason;
 	int boundsMinX,boundsMinY,boundsMaxX,boundsMaxY;
 	int boundsWidth,boundsHeight;

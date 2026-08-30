@@ -433,7 +433,7 @@ const int FeatureThreshhold = 10;
 
 // Look for features using a min and max threshold.
 // This function identifies features in an image by following gradients and edges.
-void CannyFindFeatures(RawImageGray32 *gradImg, RawImageGray8 *thetaImg, int minThresh, int maxThresh, std::vector<Feature> &feats, RawImageGray32 *featImg)
+void CannyFindFeatures(RawImageGray32 *gradImg, RawImageGray8 *thetaImg, int minThresh, int maxThresh, std::vector<Feature> &feats, RawImageGray32 *featImg, DetectorLogger *logger)
 {
     int featId = 1; // The ID of the feature being processed
 
@@ -530,6 +530,5 @@ void CannyFindFeatures(RawImageGray32 *gradImg, RawImageGray8 *thetaImg, int min
     }
 
     // Debugging output for the number of features detected
-    logVerbose("Total features detected: " + std::to_string(featId - 1));
+    logVerbose(logger, "Total features detected: " + std::to_string(featId - 1));
 }
-

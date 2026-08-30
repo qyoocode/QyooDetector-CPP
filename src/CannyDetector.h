@@ -11,6 +11,8 @@
 #import "Convolution.h"
 #import "Feature.h"
 
+class DetectorLogger;
+
 typedef enum {ThetaEmpty=0,Theta0,Theta45,Theta90,Theta135} ThetaAngles;
 // Calculate the gradient magnitude and direction at each pixel
 void CannyGradientAndTheta(RawImageGray8 *gaussImg,RawImageGray32 *gradImg,RawImageGray8 *thetaImg);
@@ -22,7 +24,7 @@ void CannyGradientAndTheta(RawImageGray8 *gaussImg,RawImageGray32 *gradImg,RawIm
 void CannyNonMaxSupress(RawImageGray32 *gradImg,RawImageGray8 *thetaImg,int gradThresh);
 
 // Find features (in a really simple way)
-void CannyFindFeatures(RawImageGray32 *gradImg,RawImageGray8 *thetaImg,int minThresh,int maxThresh,std::vector<Feature> &feats,RawImageGray32 *featImg);
+void CannyFindFeatures(RawImageGray32 *gradImg,RawImageGray8 *thetaImg,int minThresh,int maxThresh,std::vector<Feature> &feats,RawImageGray32 *featImg,DetectorLogger *logger = nullptr);
 
 void calcNextGridDir(int offset,int cx,int cy,int &nx,int &ny,int &gridDir);
 bool pixelCrowded(RawImageGray32 *featImg,int cx,int cy);

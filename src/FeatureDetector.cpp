@@ -403,16 +403,17 @@ FeatureDotsProcessor::FeatureDotsProcessor(gdImagePtr inImage, FeatureProcessor 
                                            Feature *inFeat, NormalizationMode inNormalization,
                                            const std::string &inResultLabel,
                                            ProjectiveFallbackPolicy inFallbackPolicy,
-                                           bool inEmitResult)
+                                           bool inEmitResult, bool inWriteOutputImage)
 {
     init(inImage, inFeatProc, inFeat, inNormalization, inResultLabel,
-         inFallbackPolicy, inEmitResult);
+         inFallbackPolicy, inEmitResult, inWriteOutputImage);
 }
 
 // Initialize the dot processor
 void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc, Feature *inFeat,
                                 NormalizationMode inNormalization, const std::string &inResultLabel,
-                                ProjectiveFallbackPolicy inFallbackPolicy, bool inEmitResult)
+                                ProjectiveFallbackPolicy inFallbackPolicy, bool inEmitResult,
+                                bool inWriteOutputImage)
 {
     grayImg = nullptr;
     gaussImg = nullptr;
@@ -423,6 +424,7 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
     resultLabel = inResultLabel;
     fallbackPolicy = inFallbackPolicy;
     emitResult = inEmitResult;
+    writeOutputImage = inWriteOutputImage;
     normalizationAvailable = false;
 	normalizedPatchToInputValid = false;
     affinePilotToInputValid = false;
@@ -518,7 +520,8 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
             carrierTemplateAttempted = true;
             if (!feat->carrierProjectiveValid && !feat->estimateCarrierProjectiveClass())
             {
-                logVerbose("Carrier line/conic projective class unavailable; payload rejected.");
+                logVerbose(featProc ? featProc->logger : nullptr,
+                           "Carrier line/conic projective class unavailable; payload rejected.");
                 return;
             }
             CarrierTemplateFit fit = fitCarrierTemplate(
@@ -553,7 +556,7 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
             carrierTemplateBoundaryRejected = fit.boundary;
             if (!fit.valid)
             {
-                logVerbose(fit.boundary
+                logVerbose(featProc ? featProc->logger : nullptr, fit.boundary
                     ? "Carrier-template optimum reached search boundary; payload rejected."
                     : "Carrier-template payload alternatives are ambiguous; payload rejected.");
                 return;
@@ -572,7 +575,8 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
             if (carrierTemplateStructuralConsistencyRejected ||
                 carrierTemplateStructuralAlternativeRejected)
             {
-                logVerbose(carrierTemplateStructuralConsistencyRejected
+                logVerbose(featProc ? featProc->logger : nullptr,
+                           carrierTemplateStructuralConsistencyRejected
                     ? "Carrier-template structure disagrees with the Qyoo carrier; payload rejected."
                     : "A projective-class alternative has materially stronger carrier evidence; payload rejected.");
                 return;
@@ -604,7 +608,8 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
             normalizedPatchToInput = fit.normalizedToImage;
             normalizedPatchToInputValid = true;
             carrierTemplateAvailable = true;
-            logVerbose("Carrier-template fit: amount " + std::to_string(fit.amount) +
+            logVerbose(featProc ? featProc->logger : nullptr,
+                       "Carrier-template fit: amount " + std::to_string(fit.amount) +
                        ", loss " + std::to_string(fit.bestLoss) +
                        ", alternative " +
                        (fit.alternativeLoss == std::numeric_limits<int>::max()
@@ -613,10 +618,10 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
         }
         else if (refineProjectiveFromVisibleDots(&affinePilot, affineNormalizedToImage, feat))
         {
-            logVerbose("Projective dot refinement: " +
+            logVerbose(featProc ? featProc->logger : nullptr, "Projective dot refinement: " +
                        std::to_string(feat->projectiveDotCorrespondenceCount) +
                        " centers, RMS " + std::to_string(feat->projectiveDotRmsError));
-            logVerbose("Projective dot matrix: [" +
+            logVerbose(featProc ? featProc->logger : nullptr, "Projective dot matrix: [" +
                        std::to_string(feat->projectiveMat.at(0, 0)) + "," +
                        std::to_string(feat->projectiveMat.at(0, 1)) + "," +
                        std::to_string(feat->projectiveMat.at(0, 2)) + ";" +
@@ -626,7 +631,8 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
                        std::to_string(feat->projectiveMat.at(2, 0)) + "," +
                        std::to_string(feat->projectiveMat.at(2, 1)) + "," +
                        std::to_string(feat->projectiveMat.at(2, 2)) + "]");
-            logVerbose("Projective refined-outline fit: RMS " +
+            logVerbose(featProc ? featProc->logger : nullptr,
+                       "Projective refined-outline fit: RMS " +
                        std::to_string(feat->projectiveRefinedOutlineRmsError) +
                        ", max " + std::to_string(feat->projectiveRefinedOutlineMaxError) +
                        ", near fraction " +
@@ -636,7 +642,8 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
         {
             if (feat->projectiveDotCorrespondenceCount >= 4)
             {
-                logVerbose("Projective rejected dot refinement: " +
+                logVerbose(featProc ? featProc->logger : nullptr,
+                           "Projective rejected dot refinement: " +
                            std::to_string(feat->projectiveDotCorrespondenceCount) +
                            " centers, dot RMS " +
                            std::to_string(feat->projectiveDotRmsError) +
@@ -646,7 +653,8 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
                            std::to_string(feat->projectiveRefinedOutlineMaxError) +
                            ", near fraction " +
                            std::to_string(feat->projectiveRefinedOutlineNearFraction));
-                logVerbose("Projective dot refinement rejected by accepted-outline validation; payload not sampled.");
+                logVerbose(featProc ? featProc->logger : nullptr,
+                           "Projective dot refinement rejected by accepted-outline validation; payload not sampled.");
                 feat->projectiveValid = false;
                 return;
             }
@@ -656,11 +664,13 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
             if (!allowFallback)
             {
                 feat->projectiveAffineFallbackRejected = true;
-                logVerbose("Projective dot refinement unavailable; affine fallback rejected by policy.");
+                logVerbose(featProc ? featProc->logger : nullptr,
+                           "Projective dot refinement unavailable; affine fallback rejected by policy.");
                 feat->projectiveValid = false;
                 return;
             }
-            logVerbose("Projective dot refinement unavailable; using affine fallback.");
+            logVerbose(featProc ? featProc->logger : nullptr,
+                       "Projective dot refinement unavailable; using affine fallback.");
 			feat->projectiveAffineFallbackUsed = true;
         }
         if (normalization == NormalizationProjective)
@@ -816,7 +826,8 @@ static std::string dec2bin(int intDec)
 void FeatureDotsProcessor::findDotsGray() {
     if (!normalizationAvailable)
     {
-        logVerbose((resultLabel.empty() ? std::string("Projective") : resultLabel) +
+        logVerbose(featProc ? featProc->logger : nullptr,
+                   (resultLabel.empty() ? std::string("Projective") : resultLabel) +
                    " normalization unavailable; payload not sampled.");
         return;
     }
@@ -832,23 +843,25 @@ void FeatureDotsProcessor::findDotsGray() {
     feat->dotDecStr.clear();
     qyooBits = "";  // Start fresh with qyooBits
 
-    // Create an RGB image to draw on
-    gdImagePtr outImg = gdImageCreateTrueColor(grayImg->getSizeX(), grayImg->getSizeY());
-    gdImagePtr grayVisualization = grayImg->makeGDImage();
-
-    // Copy the grayscale data into the RGB image (mapping grayscale values to RGB)
-    for (int x = 0; x < grayImg->getSizeX(); x++) {
-        for (int y = 0; y < grayImg->getSizeY(); y++) {
-            int grayValue = gdImageGetPixel(grayVisualization, x, y);
-            int rgbColor = gdImageColorAllocate(outImg, grayValue, grayValue, grayValue);
-            gdImageSetPixel(outImg, x, y, rgbColor);
+    gdImagePtr outImg = nullptr;
+    int colorRed = 0;
+    int colorGreen = 0;
+    if (writeOutputImage)
+    {
+        // Create the CLI's diagnostic image. Production library calls skip it.
+        outImg = gdImageCreateTrueColor(grayImg->getSizeX(), grayImg->getSizeY());
+        gdImagePtr grayVisualization = grayImg->makeGDImage();
+        for (int x = 0; x < grayImg->getSizeX(); x++) {
+            for (int y = 0; y < grayImg->getSizeY(); y++) {
+                int grayValue = gdImageGetPixel(grayVisualization, x, y);
+                int rgbColor = gdImageColorAllocate(outImg, grayValue, grayValue, grayValue);
+                gdImageSetPixel(outImg, x, y, rgbColor);
+            }
         }
+        gdImageDestroy(grayVisualization);
+        colorRed = gdImageColorAllocate(outImg, 255, 0, 0);
+        colorGreen = gdImageColorAllocate(outImg, 0, 255, 0);
     }
-    gdImageDestroy(grayVisualization);
-
-    // Allocate colors for drawing
-    int colorRed = gdImageColorAllocate(outImg, 255, 0, 0);
-    int colorGreen = gdImageColorAllocate(outImg, 0, 255, 0);
 
     for (int row = 0; row < numRow; row++) {  // We process from row 0 to numRow
         int resChar = 0;
@@ -873,12 +886,19 @@ void FeatureDotsProcessor::findDotsGray() {
                 sampledBits[row][pos] = 1;
 
                 // Draw a green circle around the detected dot
-                gdImageArc(outImg, posPix, rowPix, PixelsPerDot, PixelsPerDot, 0, 360, colorGreen);
+                if (outImg)
+                    gdImageArc(outImg, posPix, rowPix, PixelsPerDot, PixelsPerDot,
+                               0, 360, colorGreen);
             } else {
                 sampledBits[row][pos] = 0;
                 // If the dot represents a 0, draw a red X
-                gdImageLine(outImg, posPix - 5, rowPix - 5, posPix + 5, rowPix + 5, colorRed);    // Draw slash left
-                gdImageLine(outImg, posPix - 5, rowPix + 5, posPix + 5, rowPix - 5, colorRed);    // Draw slash right
+                if (outImg)
+                {
+                    gdImageLine(outImg, posPix - 5, rowPix - 5,
+                                posPix + 5, rowPix + 5, colorRed); // Draw slash left
+                    gdImageLine(outImg, posPix - 5, rowPix + 5,
+                                posPix + 5, rowPix - 5, colorRed); // Draw slash right
+                }
             }
         }
 
@@ -898,17 +918,21 @@ void FeatureDotsProcessor::findDotsGray() {
 
         // Debugging output for each row
 
-        logVerbose("Row " + std::to_string(row) + ": resChar (binary) = " + currentRowBits);
-        logVerbose("Current qyooBits = " + qyooBits);
+        logVerbose(featProc ? featProc->logger : nullptr,
+                   "Row " + std::to_string(row) + ": resChar (binary) = " + currentRowBits);
+        logVerbose(featProc ? featProc->logger : nullptr,
+                   "Current qyooBits = " + qyooBits);
     }
     if (normalization == NormalizationCarrierTemplate &&
         qyooBits != carrierTemplatePayload)
     {
         carrierTemplateSamplerDisagreed = true;
-        logVerbose("Carrier-template fitted payload and deterministic sampler disagree; payload rejected.");
+        logVerbose(featProc ? featProc->logger : nullptr,
+                   "Carrier-template fitted payload and deterministic sampler disagree; payload rejected.");
         qyooBits.clear();
         feat->dotBits.clear();
-        gdImageDestroy(outImg);
+        if (outImg)
+            gdImageDestroy(outImg);
         delete radFilter;
         return;
     }
@@ -933,17 +957,21 @@ void FeatureDotsProcessor::findDotsGray() {
     }
 
     // Save the image with the dots circled and x notated to see where pattern is detected
-    std::string outputFilePrefix = resultLabel.empty() ? "" : resultLabel + "_";
-    std::string outputFileName = "output/" + outputFilePrefix + feat->dotDecStr + ".png";
-    FILE *outputFile = fopen(outputFileName.c_str(), "wb");
-    if (outputFile) {
-        gdImagePng(outImg, outputFile); // Save PNG image using gdImagePng
-        fclose(outputFile);
-    } else {
-        std::cerr << "Error: Unable to open file for writing PNG image: " << outputFileName << std::endl;
+    if (writeOutputImage)
+    {
+        std::string outputFilePrefix = resultLabel.empty() ? "" : resultLabel + "_";
+        std::string outputFileName = "output/" + outputFilePrefix + feat->dotDecStr + ".png";
+        FILE *outputFile = fopen(outputFileName.c_str(), "wb");
+        if (outputFile) {
+            gdImagePng(outImg, outputFile); // Save PNG image using gdImagePng
+            fclose(outputFile);
+        } else {
+            std::cerr << "Error: Unable to open file for writing PNG image: " << outputFileName << std::endl;
+        }
     }
 
-    gdImageDestroy(outImg);
+    if (outImg)
+        gdImageDestroy(outImg);
 
     delete radFilter;
 
@@ -951,8 +979,17 @@ void FeatureDotsProcessor::findDotsGray() {
 
 
 // FeatureProcessor constructor: initialize with an image
-FeatureProcessor::FeatureProcessor(gdImagePtr inImage, int sizeX, int sizeY)
+FeatureProcessor::FeatureProcessor(gdImagePtr inImage, int sizeX, int sizeY,
+                                   DetectorLogger *inLogger)
 {
+    gaussFilter = nullptr;
+    grayImg = nullptr;
+    gaussImg = nullptr;
+    gradImg = nullptr;
+    thetaImg = nullptr;
+    featImg = nullptr;
+    numFound = 0;
+    logger = inLogger;
     grayImg = new RawImageGray8(sizeX, sizeY);
     grayImg->copyFromGDImage(inImage);
     grayImg->runContrast();
@@ -992,18 +1029,19 @@ void FeatureProcessor::processImage()
 // Find valid Qyoo features
 int FeatureProcessor::findQyoo()
 {
-    logVerbose("Starting Qyoo detection...");
+    logVerbose(logger, "Starting Qyoo detection...");
 
     featImg = new RawImageGray32(grayImg->getSizeX(), grayImg->getSizeY());
-    CannyFindFeatures(gradImg, thetaImg, 10.0, 60.0, feats, featImg);
+    CannyFindFeatures(gradImg, thetaImg, 10.0, 60.0, feats, featImg, logger);
 
-    logVerbose("Number of features detected: " + std::to_string(feats.size()) );
+    logVerbose(logger, "Number of features detected: " + std::to_string(feats.size()) );
 
     // Iterate over the detected features and validate them
     numFound = 0;
     for (unsigned int ii = 0; ii < feats.size(); ii++)
     {
         Feature &feat = feats[ii];
+        feat.logger = logger;
 
         feat.imgSizeX = grayImg->getSizeX();
         feat.imgSizeY = grayImg->getSizeY();
@@ -1021,29 +1059,30 @@ int FeatureProcessor::findQyoo()
 
         if (feat.valid)
         {
-            logVerbose("Qyoo shape feature found!");
+            logVerbose(logger, "Qyoo shape feature found!");
 			feat.estimateProjectiveTransform();
 			if (feat.projectiveValid)
 			{
-				logVerbose("Projective outline fit: " + std::to_string(feat.projectiveCorrespondenceCount) +
+					logVerbose(logger, "Projective outline fit: " + std::to_string(feat.projectiveCorrespondenceCount) +
 				           " points, RMS " + std::to_string(feat.projectiveRmsError) +
 				           ", max " + std::to_string(feat.projectiveMaxError));
 			}
 			else
 			{
-				logVerbose("Projective outline fit unavailable.");
+					logVerbose(logger, "Projective outline fit unavailable.");
 			}
             numFound++;
         }
     }
 
-    logVerbose("Total Qyoo shapes detected: " + std::to_string(numFound) );
+    logVerbose(logger, "Total Qyoo shapes detected: " + std::to_string(numFound) );
     return numFound;
 }
 
 // Detect dots in the valid Qyoo features
 void FeatureProcessor::findDots(gdImagePtr inImage, NormalizationMode normalization,
-                                ProjectiveFallbackPolicy fallbackPolicy, bool emitResults)
+                                ProjectiveFallbackPolicy fallbackPolicy, bool emitResults,
+                                bool writeOutputImages)
 {
     for (auto &feat : feats)
     {
@@ -1053,19 +1092,20 @@ void FeatureProcessor::findDots(gdImagePtr inImage, NormalizationMode normalizat
             {
                 auto *affineDots = new FeatureDotsProcessor(inImage, this, &feat,
                                                             NormalizationAffine, "", fallbackPolicy,
-                                                            emitResults);
+                                                            emitResults, writeOutputImages);
                 affineDots->findDotsGray();
                 featureDots.push_back(affineDots);
                 auto *projectiveDots = new FeatureDotsProcessor(inImage, this, &feat,
                                                                 NormalizationProjective, "Projective", fallbackPolicy,
-                                                                emitResults);
+                                                                emitResults, writeOutputImages);
                 projectiveDots->findDotsGray();
                 featureDots.push_back(projectiveDots);
             }
             else
             {
                 auto *featDots = new FeatureDotsProcessor(inImage, this, &feat, normalization,
-                                                          "", fallbackPolicy, emitResults);
+                                                          "", fallbackPolicy, emitResults,
+                                                          writeOutputImages);
                 featDots->findDotsGray();
                 featureDots.push_back(featDots);
             }

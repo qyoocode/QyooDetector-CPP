@@ -147,7 +147,7 @@ void Feature::findCorner()
 			maxDist2 = dist;
 		}
 	}
-	logVerbose("Corner found at (" + std::to_string(cornX) + ", " + std::to_string(cornY) + "), distance: " + std::to_string(maxDist2));
+	logVerbose(logger, "Corner found at (" + std::to_string(cornX) + ", " + std::to_string(cornY) + "), distance: " + std::to_string(maxDist2));
 	if (!cornerValid)
 	{
 		valid = false;
@@ -362,7 +362,7 @@ void Feature::refineCornerAndFindAngles(int searchDist2)
 			e0.x = edge0.ex;  e0.y = edge0.ey;
 			e1.x = edge1.ex;  e1.y = edge1.ey;
 
-			logVerbose("Angles found: ang0 = " + std::to_string(ang0) + ", ang1 = " + std::to_string(ang1) + ", difference = " + std::to_string(angDiff));
+			logVerbose(logger, "Angles found: ang0 = " + std::to_string(ang0) + ", ang1 = " + std::to_string(ang1) + ", difference = " + std::to_string(angDiff));
 
 			// And calculate a shiny new corner point
 			// Note: Reassigning variable names because I'm lazy
@@ -374,7 +374,7 @@ void Feature::refineCornerAndFindAngles(int searchDist2)
 			cornX = ((x1*y2 - y1*x2)*(x3-x4) - (x1-x2)*(x3*y4 - y3*x4))/denom;
 			cornY = ((x1*y2 - y1*x2)*(y3-y4) - (y1-y2)*(x3*y4 - y3*x4))/denom;
 
-			logVerbose("New corner position: (" + std::to_string(cornX) + ", " + std::to_string(cornY) + ")");
+			logVerbose(logger, "New corner position: (" + std::to_string(cornX) + ", " + std::to_string(cornY) + ")");
 
 			// Calculate the Z portion of a cross product and switch the edges
 			//  if it's not pointing up
@@ -436,7 +436,7 @@ void Feature::refineCornerAndFindAngles(int searchDist2)
 	}
 	else
 	{
-		logVerbose("Not enough valid edges found for angle comparison.");
+		logVerbose(logger, "Not enough valid edges found for angle comparison.");
 		rejectionReason = FeatureCornerEdgesInsufficient;
 	}
 
@@ -506,7 +506,7 @@ bool Feature::modelCheck(float nearDist2,float nearFrac)
 	modelTotalPointCount = total;
 	modelCloseFraction = total > 0 ? static_cast<double>(numClose) / total : 0.0;
 
-	logVerbose("Model check: " + std::to_string(numClose) + " out of " + std::to_string(total) + " points close enough.");
+	logVerbose(logger, "Model check: " + std::to_string(numClose) + " out of " + std::to_string(total) + " points close enough.");
 
 	if (!modelChecked)
 	{

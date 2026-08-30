@@ -2,6 +2,8 @@
 SRC_DIR = src
 OBJ_DIR = obj
 BIN_DIR = bin
+LIB_DIR = lib
+INCLUDE_DIR = include
 INPUT_DIR = input
 OUTPUT_DIR = output
 SCRIPTS_DIR = scripts
@@ -10,15 +12,37 @@ TEST_BIN_DIR = $(BIN_DIR)/tests
 
 # Compiler and flags
 CXX = g++
-CXXFLAGS = -Wall -std=c++11 -I/opt/homebrew/include -I. # Compiler flags (for header files)
-LDFLAGS = -L/opt/homebrew/lib -lgd  # Linker flags (for libraries)
+CC = cc
+AR = ar
+GD_CFLAGS := $(shell pkg-config --cflags gdlib 2>/dev/null)
+GD_LIBS := $(shell pkg-config --libs gdlib 2>/dev/null)
+ifeq ($(strip $(GD_LIBS)),)
+GD_CFLAGS = -I/opt/homebrew/include
+GD_LIBS = -L/opt/homebrew/lib -lgd
+endif
+CXXFLAGS = -Wall -std=c++11 -fPIC -fvisibility=hidden -I. -I$(INCLUDE_DIR) $(GD_CFLAGS)
+LDFLAGS = $(GD_LIBS)
 
 # Files
 SRC_FILES = $(wildcard $(SRC_DIR)/*.cpp)
 HEADER_FILES = $(wildcard $(SRC_DIR)/*.h)
+PUBLIC_HEADERS = $(wildcard $(INCLUDE_DIR)/*.h)
 OBJ_FILES = $(SRC_FILES:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 EXECUTABLE = $(BIN_DIR)/qyoo_detector
-CORE_OBJ_FILES = $(filter-out $(OBJ_DIR)/main.o,$(OBJ_FILES))
+CORE_SRC_FILES = $(filter-out $(SRC_DIR)/main.cpp $(SRC_DIR)/ImageLoader.cpp,$(SRC_FILES))
+CORE_OBJ_FILES = $(CORE_SRC_FILES:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
+CLI_OBJ_FILES = $(OBJ_DIR)/main.o $(OBJ_DIR)/ImageLoader.o
+STATIC_LIBRARY = $(LIB_DIR)/libqyoo_detector.a
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+SHARED_LIBRARY = $(LIB_DIR)/libqyoo_detector.dylib
+SHARED_LINK_FLAGS = -dynamiclib -Wl,-install_name,@rpath/libqyoo_detector.dylib
+SANITIZER_ENV =
+else
+SHARED_LIBRARY = $(LIB_DIR)/libqyoo_detector.so
+SHARED_LINK_FLAGS = -shared -Wl,-soname,libqyoo_detector.so
+SANITIZER_ENV = ASAN_OPTIONS=detect_leaks=1
+endif
 ASPECT_TEST = $(TEST_BIN_DIR)/test_feature_aspect_ratio
 SCALE_GATE_TEST = $(TEST_BIN_DIR)/test_feature_scale_gate
 CONTRAST_TEST = $(TEST_BIN_DIR)/test_raw_image_contrast
@@ -30,6 +54,9 @@ PROJECTIVE_ESTIMATE_TEST = $(TEST_BIN_DIR)/test_feature_projective_estimate
 PROJECTIVE_SAMPLING_TEST = $(TEST_BIN_DIR)/test_projective_sampling
 CARRIER_AMBIGUITY_TEST = $(TEST_BIN_DIR)/test_carrier_ambiguity
 MULTISCALE_LOCALIZATION_TEST = $(TEST_BIN_DIR)/test_multiscale_localization
+PUBLIC_API_TEST = $(TEST_BIN_DIR)/test_public_api
+PUBLIC_API_SANITIZER_TEST = $(TEST_BIN_DIR)/test_public_api_sanitized
+PUBLIC_API_TEST_IMAGE ?= input/qyoo-samples/IMG_5172.jpg
 MULTISCALE_CLI_TEST = $(TEST_DIR)/test_multiscale_cli.py
 MULTISCALE_CLI_IMAGE ?= ../recovery/task-08/real-camera/incoming/jpeg/screen_frontal_near_raw_zero.jpeg
 MULTISCALE_CLI_EXPECTED ?= 000000000000000000000000000000000000
@@ -52,7 +79,11 @@ CORNER_PAIR_EXPECTED_BITS ?= 101111101010011110111010111001101100
 CORNER_PAIR_NEGATIVE ?= ../recovery/task-05/negative-corpus/images/negative_development_circle_square_20.png
 
 # Target to build everything
-all: $(EXECUTABLE)
+all: $(STATIC_LIBRARY) $(SHARED_LIBRARY) $(EXECUTABLE)
+
+.PHONY: library shared
+library: $(STATIC_LIBRARY)
+shared: $(SHARED_LIBRARY)
 
 # Create bin and obj directories if they don't exist
 $(OBJ_DIR):
@@ -63,16 +94,32 @@ $(BIN_DIR):
 	mkdir -p $(INPUT_DIR)
 	mkdir -p $(OUTPUT_DIR)
 
+$(LIB_DIR):
+	mkdir -p $(LIB_DIR)
+
 $(TEST_BIN_DIR):
 	mkdir -p $(TEST_BIN_DIR)
 
-# Rule to build the executable
-$(EXECUTABLE): $(OBJ_FILES) | $(BIN_DIR)
-	$(CXX) $(OBJ_FILES) -o $@ $(LDFLAGS)
+# The CLI is an adapter/consumer; filename decoding is not part of the core.
+$(EXECUTABLE): $(CLI_OBJ_FILES) $(STATIC_LIBRARY) | $(BIN_DIR)
+	$(CXX) $(CLI_OBJ_FILES) $(STATIC_LIBRARY) -o $@ $(LDFLAGS)
+
+$(STATIC_LIBRARY): $(CORE_OBJ_FILES) | $(LIB_DIR)
+	$(AR) rcs $@ $(CORE_OBJ_FILES)
+
+$(SHARED_LIBRARY): $(CORE_OBJ_FILES) | $(LIB_DIR)
+	$(CXX) $(SHARED_LINK_FLAGS) $(CORE_OBJ_FILES) -o $@ $(LDFLAGS)
 
 # Rule to compile source files into object files
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(HEADER_FILES) | $(OBJ_DIR)
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(HEADER_FILES) $(PUBLIC_HEADERS) | $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(PUBLIC_API_TEST): $(TEST_DIR)/test_public_api.cpp $(STATIC_LIBRARY) | $(TEST_BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(STATIC_LIBRARY) -o $@ $(LDFLAGS)
+
+$(PUBLIC_API_SANITIZER_TEST): $(TEST_DIR)/test_public_api.cpp $(CORE_SRC_FILES) $(HEADER_FILES) $(PUBLIC_HEADERS) | $(TEST_BIN_DIR)
+	$(CXX) $(CXXFLAGS) -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined \
+		$< $(CORE_SRC_FILES) -o $@ $(LDFLAGS) -fsanitize=address,undefined
 
 $(ASPECT_TEST): $(TEST_DIR)/test_feature_aspect_ratio.cpp $(CORE_OBJ_FILES) | $(TEST_BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< $(CORE_OBJ_FILES) -o $@ $(LDFLAGS)
@@ -152,6 +199,16 @@ test-carrier-ambiguity: $(CARRIER_AMBIGUITY_TEST)
 test-multiscale-localization: $(MULTISCALE_LOCALIZATION_TEST)
 	$(MULTISCALE_LOCALIZATION_TEST)
 
+.PHONY: test-public-api test-public-header test-sanitizers
+test-public-api: $(PUBLIC_API_TEST)
+	$(PUBLIC_API_TEST) $(PUBLIC_API_TEST_IMAGE)
+
+test-public-header:
+	$(CC) -std=c11 -Wall -Wextra -pedantic -I$(INCLUDE_DIR) -fsyntax-only $(TEST_DIR)/test_public_header.c
+
+test-sanitizers: $(PUBLIC_API_SANITIZER_TEST)
+	$(SANITIZER_ENV) $(PUBLIC_API_SANITIZER_TEST) $(PUBLIC_API_TEST_IMAGE)
+
 .PHONY: test-multiscale-cli
 test-multiscale-cli: $(EXECUTABLE)
 	python3 $(MULTISCALE_CLI_TEST) $(EXECUTABLE) $(MULTISCALE_CLI_IMAGE) $(MULTISCALE_CLI_EXPECTED)
@@ -190,6 +247,10 @@ test-corner-edge-pair: $(EXECUTABLE)
 clean:
 	@test -n "$(CLEAN_TRASH_DIR)" || \
 		(echo "Refusing permanent cleanup; set CLEAN_TRASH_DIR under recovery/trash/task-NN/." && exit 1)
-	mkdir -p $(CLEAN_TRASH_DIR)/bin
+	@test ! -e $(CLEAN_TRASH_DIR)/obj
+	@test ! -e $(CLEAN_TRASH_DIR)/bin
+	@test ! -e $(CLEAN_TRASH_DIR)/lib
+	mkdir -p $(CLEAN_TRASH_DIR)
 	@if test -d $(OBJ_DIR); then mv $(OBJ_DIR) $(CLEAN_TRASH_DIR)/obj; fi
-	@if test -f $(EXECUTABLE); then mv $(EXECUTABLE) $(CLEAN_TRASH_DIR)/bin/qyoo_detector; fi
+	@if test -d $(BIN_DIR); then mv $(BIN_DIR) $(CLEAN_TRASH_DIR)/bin; fi
+	@if test -d $(LIB_DIR); then mv $(LIB_DIR) $(CLEAN_TRASH_DIR)/lib; fi

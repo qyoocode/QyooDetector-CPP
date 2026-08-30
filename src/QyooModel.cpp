@@ -16,12 +16,8 @@
 // Instantiate the singleton
 QyooModel *QyooModel::getQyooModel()
 {
-	static QyooModel *theModel = NULL;
-
-	if (!theModel)
-		theModel = new QyooModel();
-
-	return theModel;
+	static QyooModel theModel;
+	return &theModel;
 }
 
 ProjectiveTransform QyooModel::carrierAmbiguityTransform(double amount)

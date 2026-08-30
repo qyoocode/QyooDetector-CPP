@@ -14,6 +14,7 @@
 #import "Convolution.h"
 #import "CannyDetector.h"
 #import "Feature.h"
+#import "Logger.h"
 
 class FeatureProcessor;
 
@@ -48,7 +49,7 @@ class FeatureDotsProcessor
                        NormalizationMode normalization = NormalizationAffine,
                        const std::string &resultLabel = "",
                        ProjectiveFallbackPolicy fallbackPolicy = QualifiedAffineFallback,
-                       bool emitResult = true);
+                       bool emitResult = true, bool writeOutputImage = true);
 
   // Destructor: Cleans up resources used by the processor.
   ~FeatureDotsProcessor();
@@ -61,7 +62,8 @@ protected:
   // Initialize the processor with the given image, feature processor, and feature.
   void init(gdImagePtr inImage, FeatureProcessor *featProc, Feature *feat,
             NormalizationMode normalization, const std::string &resultLabel,
-            ProjectiveFallbackPolicy fallbackPolicy, bool emitResult);
+            ProjectiveFallbackPolicy fallbackPolicy, bool emitResult,
+            bool writeOutputImage);
 
  public:
   RawImageGray8 *grayImg;   // Grayscale version of the image
@@ -118,6 +120,7 @@ protected:
   int carrierTemplateSearchSteps;
   std::string carrierTemplatePayload;
   bool emitResult;
+  bool writeOutputImage;
 };
 
 /*
@@ -130,7 +133,8 @@ class FeatureProcessor
 {
  public:
   // Constructor: Initializes the processor with the given image and image size.
-  FeatureProcessor(gdImagePtr inImage, int processSizeX, int processSizeY);
+  FeatureProcessor(gdImagePtr inImage, int processSizeX, int processSizeY,
+                   DetectorLogger *logger = nullptr);
 
   // Destructor: Cleans up resources used by the processor.
   ~FeatureProcessor();
@@ -148,7 +152,7 @@ class FeatureProcessor
   // Find and process the dots in the valid Qyoo features.
   void findDots(gdImagePtr inImage, NormalizationMode normalization = NormalizationCarrierTemplate,
                 ProjectiveFallbackPolicy fallbackPolicy = QualifiedAffineFallback,
-                bool emitResults = true);
+                bool emitResults = true, bool writeOutputImages = true);
 
   // Optional decision-neutral diagnostics for test/recovery harnesses.
   std::string diagnosticsJson(const std::string &imageId,
@@ -174,4 +178,5 @@ class FeatureProcessor
 
   // List of processors for the detected dots in valid Qyoo features
   std::vector<FeatureDotsProcessor *> featureDots;
+  DetectorLogger *logger;               // Non-owning, context-local logger
 };
