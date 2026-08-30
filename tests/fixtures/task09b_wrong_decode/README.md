@@ -27,3 +27,9 @@ python3 tests/fixtures/task09b_wrong_decode/freeze_from_task09.py
 ```
 
 The copied JPEG hash check is mandatory and fails if any fixture byte changes.
+
+`make test-task09b-wrong-decodes` requires every fixture to be either decoded
+exactly or conservatively rejected, and also verifies the measured rejection
+mechanism: five carrier-structure failures, one materially better structural
+alternative, and one failed independent-raster confirmation. Any accepted
+payload other than the fixture's expected 36 bits is release-blocking.

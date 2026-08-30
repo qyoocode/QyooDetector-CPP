@@ -50,6 +50,8 @@ def main() -> int:
                         default="production")
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--timeout", type=float, default=180.0)
+    parser.add_argument("--include-accepted-features", action="store_true",
+                        help="preserve accepted feature/template diagnostics")
     args = parser.parse_args()
     destination = args.output.resolve()
     if destination.exists():
@@ -99,6 +101,21 @@ def main() -> int:
             classification = "rejected"
         else:
             classification = "negative_rejected"
+        accepted_features = None
+        if args.include_accepted_features and trace:
+            accepted_features = [
+                {
+                    "feature_index": feature["feature_index"],
+                    "bounds": feature["bounds"],
+                    "model_close_fraction": feature["model_close_fraction"],
+                    "carrier_projective_rms_pixels": feature["carrier_projective_rms_pixels"],
+                    "carrier_projective_max_error_pixels":
+                        feature["carrier_projective_max_error_pixels"],
+                    "carrier_template": feature["carrier_template_diagnostics"],
+                }
+                for feature in trace["features"]
+                if feature["accepted"] and feature["payload_extracted"]
+            ]
         return {
             "case_id": case["case_id"],
             "suite": case.get("suite"),
@@ -112,6 +129,7 @@ def main() -> int:
             "exception": exception,
             "multiscale": trace.get("multiscale") if trace else None,
             "stages": trace.get("stages") if trace else None,
+            "accepted_features": accepted_features,
         }
 
     results = []

@@ -38,6 +38,7 @@ struct LocalizationCandidate
     double normalizedCarrierRms = 0.0;
     int carrierTemplateLoss = 0;
     int carrierTemplateGap = 0;
+    bool requiresRasterConfirmation = false;
     int attemptIndex = 0;
     int featureIndex = 0;
 };

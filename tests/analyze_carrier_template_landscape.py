@@ -28,6 +28,26 @@ MODEL_UPPER = 0.5 + (0.5 / math.sqrt(2.0))
 DOT_RADIUS = (MODEL_UPPER - MODEL_LOWER) / 12.0
 PATCH_MODEL_LOWER = MODEL_LOWER - 2.0 * DOT_RADIUS
 PATCH_MODEL_UPPER = MODEL_UPPER + 2.0 * DOT_RADIUS
+GRID_PROFILES = {
+    "detector_current": {
+        "centers": tuple(MODEL_LOWER + DOT_RADIUS + 2.0 * DOT_RADIUS * index
+                         for index in range(6)),
+        "radius": DOT_RADIUS,
+    },
+    "historical_svg_204": {
+        "centers": tuple((39.0 + 25.0 * index) / 204.0 for index in range(6)),
+        "radius": 10.0 / 204.0,
+    },
+    "c_like_512": {
+        "centers": tuple((179.0 + 30.0 * index - 128.0) / 256.0 for index in range(6)),
+        "radius": 13.0 / 256.0,
+    },
+    "php_like_512": {
+        "centers": tuple((value - 128.0) / 256.0
+                         for value in (178.75, 209.0, 239.0, 269.25, 299.5, 329.5)),
+        "radius": 13.25 / 256.0,
+    },
+}
 
 
 def read_json(path: Path) -> Any:
@@ -56,9 +76,9 @@ def carrier_ambiguity_transform(amount: float) -> np.ndarray:
     return model_from_unit @ fixed_basis @ boost @ inverse_fixed_basis @ unit_from_model
 
 
-def model_dot_location(column: int, row: int) -> tuple[float, float]:
-    return (MODEL_LOWER + DOT_RADIUS + 2.0 * DOT_RADIUS * column,
-            MODEL_LOWER + DOT_RADIUS + 2.0 * DOT_RADIUS * row)
+def model_dot_location(column: int, row: int,
+                       profile: dict[str, Any]) -> tuple[float, float]:
+    return profile["centers"][column], profile["centers"][row]
 
 
 def sample_patch(red: np.ndarray, normalized_to_input: np.ndarray) -> np.ndarray:
@@ -80,7 +100,7 @@ def sample_patch(red: np.ndarray, normalized_to_input: np.ndarray) -> np.ndarray
     return patch.astype(np.uint8)
 
 
-def evaluate_patch(patch: np.ndarray) -> dict[str, Any]:
+def evaluate_patch(patch: np.ndarray, profile: dict[str, Any]) -> dict[str, Any]:
     radius = 5
     background_values = [int(patch[5 + dy, 5 + dx])
                          for dy in range(-radius, radius + 1)
@@ -108,9 +128,9 @@ def evaluate_patch(patch: np.ndarray) -> dict[str, Any]:
     payload_support = np.zeros_like(inside)
     for row in range(6):
         for column in range(6):
-            center_x, center_y = model_dot_location(column, row)
+            center_x, center_y = model_dot_location(column, row, profile)
             payload_support |= ((model_x - center_x) ** 2 +
-                                (model_y - center_y) ** 2 < DOT_RADIUS ** 2)
+                                (model_y - center_y) ** 2 < profile["radius"] ** 2)
     structural_support = ~payload_support
     structural_mismatch = int(carrier_mismatch[structural_support].sum())
     structural_count = int(structural_support.sum())
@@ -120,8 +140,9 @@ def evaluate_patch(patch: np.ndarray) -> dict[str, Any]:
     payload_improvement = 0
     for row in range(6):
         for column in range(6):
-            center_x, center_y = model_dot_location(column, row)
-            disk = ((model_x - center_x) ** 2 + (model_y - center_y) ** 2 < DOT_RADIUS ** 2)
+            center_x, center_y = model_dot_location(column, row, profile)
+            disk = ((model_x - center_x) ** 2 +
+                    (model_y - center_y) ** 2 < profile["radius"] ** 2)
             zero_loss = int(opposite[disk].sum())
             one_loss = int((~opposite[disk]).sum())
             if one_loss < zero_loss:
@@ -172,29 +193,45 @@ def main() -> int:
                           (0.0, PATCH_MODEL_UPPER - PATCH_MODEL_LOWER, 0.0),
                           (0.0, 0.0, 1.0)))
 
-    evaluations = []
+    patches = []
     for index in range(SEARCH_STEPS):
         fraction = index / (SEARCH_STEPS - 1)
         amount = MINIMUM_AMOUNT + fraction * (MAXIMUM_AMOUNT - MINIMUM_AMOUNT)
         normalized_to_input = (carrier_model_to_input @ carrier_ambiguity_transform(amount)
                                @ dot_translation @ dot_scale)
-        evaluation = evaluate_patch(sample_patch(red, normalized_to_input))
-        evaluation.update({"index": index, "amount": amount,
-                           "normalized_patch_to_input": normalized_to_input.tolist()})
-        evaluations.append(evaluation)
+        patches.append((index, amount, normalized_to_input,
+                        sample_patch(red, normalized_to_input)))
 
-    best = min(evaluations, key=lambda item: (item["loss"], abs(item["amount"])))
-    payload_runs = []
-    for evaluation in evaluations:
-        if not payload_runs or payload_runs[-1]["payload"] != evaluation["payload"]:
-            payload_runs.append({"payload": evaluation["payload"],
-                                 "first_amount": evaluation["amount"],
-                                 "last_amount": evaluation["amount"],
-                                 "minimum_loss": evaluation["loss"]})
-        else:
-            payload_runs[-1]["last_amount"] = evaluation["amount"]
-            payload_runs[-1]["minimum_loss"] = min(payload_runs[-1]["minimum_loss"],
-                                                    evaluation["loss"])
+    profile_results = {}
+    for profile_name, profile in GRID_PROFILES.items():
+        evaluations = []
+        for index, amount, normalized_to_input, patch in patches:
+            evaluation = evaluate_patch(patch, profile)
+            evaluation.update({"index": index, "amount": amount,
+                               "normalized_patch_to_input": normalized_to_input.tolist()})
+            evaluations.append(evaluation)
+        best = min(evaluations, key=lambda item: (item["loss"], abs(item["amount"])))
+        payload_runs = []
+        for evaluation in evaluations:
+            if not payload_runs or payload_runs[-1]["payload"] != evaluation["payload"]:
+                payload_runs.append({"payload": evaluation["payload"],
+                                     "first_amount": evaluation["amount"],
+                                     "last_amount": evaluation["amount"],
+                                     "minimum_loss": evaluation["loss"]})
+            else:
+                payload_runs[-1]["last_amount"] = evaluation["amount"]
+                payload_runs[-1]["minimum_loss"] = min(payload_runs[-1]["minimum_loss"],
+                                                        evaluation["loss"])
+        profile_results[profile_name] = {
+            "best": best,
+            "payload_runs": payload_runs,
+            "evaluations": evaluations,
+        }
+
+    current = profile_results["detector_current"]
+    best = current["best"]
+    payload_runs = current["payload_runs"]
+    evaluations = current["evaluations"]
 
     output = {
         "schema": "org.qyoo.detector.carrier-template-landscape",
@@ -205,6 +242,7 @@ def main() -> int:
         "best": best,
         "payload_runs": payload_runs,
         "evaluations": evaluations,
+        "grid_profile_results": profile_results,
     }
     write_json(args.output.resolve(), output)
     print(json.dumps({"best_amount": best["amount"], "best_loss": best["loss"],

@@ -72,12 +72,15 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--timeout", type=float, default=120.0)
+    parser.add_argument("--scale-key", help="collect only one observation scale directory")
     args = parser.parse_args()
 
     manifest = read_json(args.manifest.resolve())
     cases = {case["case_id"]: case for case in manifest["cases"]}
     tasks: list[tuple[dict[str, Any], dict[str, Any], Path]] = []
     for path in sorted(args.observations.resolve().glob("*/*.json")):
+        if args.scale_key and path.parent.name != args.scale_key:
+            continue
         observation = read_json(path)
         if not observation.get("observed_bits"):
             continue

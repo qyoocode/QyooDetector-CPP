@@ -67,6 +67,20 @@ final 36 bits still come from the independent historical 88×88 deterministic
 sampler; disagreement is rejected. The repaired historical path remains
 available as a diagnostic control with `--normalization projective`.
 
+Large camera images use a bounded deterministic localization policy: long-edge
+1,320, then long-edge 1,600, then one native fallback. Processing stops at the
+first safely accepted result. Images below a 2,400 px long edge retain native
+localization. Candidate geometry is always reported in original-image
+coordinates.
+
+Carrier-template acceptance also requires payload-independent structural
+agreement outside all 36 legal payload disks. Numerically unstable
+projective-class choices are audited at subpixel phases and, only when that
+audit is materially split, must agree with an independent 60% raster-scale
+observation of the same physical carrier. A disagreement or unavailable
+confirmation is rejected; payload agreement without geometric overlap is not
+accepted as confirmation.
+
 ### Bundled Sample Status
 
 `input/45427039637.png` is retained as a known failing renderer-compatibility sample, not as a successful installation demo. Its 6x6 cells do encode `45427039637`, but the current legacy detector traces 26 features and accepts no Qyoo shape. Disposable builds of every relevant buildable detector state from `4e65f18` through `5520ced` also reject this exact file. The README command naming the file was written in October 2024; the file itself was added in April 2025, so the former “should output” claim was never supported by repository history.
@@ -87,7 +101,12 @@ bin/qyoo_detector path/to/qyoo.jpg --verbose
 
 Verbose mode reports image dimensions, traced features, corner/model decisions, and the final accepted-shape count. A rejected input still exits normally after printing `No Qyoo found in the image.`
 
-Focused correctness checks are available as Make targets: `test-aspect`, `test-contrast`, `test-background-average`, `test-resource-stress`, and `test-image-input`. The recovery workspace's frozen detector scoreboard remains the behavioral regression authority.
+Focused correctness checks are available as Make targets: `test-aspect`,
+`test-contrast`, `test-background-average`, `test-resource-stress`,
+`test-image-input`, `test-multiscale-localization`,
+`test-carrier-template-cli`, and `test-task09b-wrong-decodes`. The recovery
+workspace's frozen detector scoreboard remains the behavioral regression
+authority.
 
 ### Decision-Neutral Visual Debug Export
 

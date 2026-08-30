@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <chrono>
 #include <cmath>
@@ -42,6 +43,8 @@ struct AttemptSummary {
     double runtimeMilliseconds;
 };
 
+static const double RasterConfirmationRelativeScale = 0.60;
+
 static gdImagePtr localizationImage(gdImagePtr original,
                                     const LocalizationScaleAttempt &attempt) {
     if (attempt.width == gdImageSX(original) && attempt.height == gdImageSY(original))
@@ -72,6 +75,8 @@ static std::vector<LocalizationCandidate> localizationCandidates(
         candidate.carrierTemplateLoss = dots->carrierTemplateBestLoss;
         candidate.carrierTemplateGap = dots->carrierTemplateAlternativeLoss < 0
             ? 0 : dots->carrierTemplateAlternativeLoss - dots->carrierTemplateBestLoss;
+        candidate.requiresRasterConfirmation =
+            dots->carrierTemplateRasterConfirmationRequired;
         candidate.attemptIndex = attemptIndex;
         candidate.featureIndex = static_cast<int>(processor.feats.size());
         for (size_t index = 0; index < processor.feats.size(); index++)
@@ -82,6 +87,43 @@ static std::vector<LocalizationCandidate> localizationCandidates(
         candidates.push_back(candidate);
     }
     return candidates;
+}
+
+static LocalizationScaleAttempt rasterConfirmationScale(
+    int originalWidth, int originalHeight,
+    const LocalizationScaleAttempt &acceptedScale) {
+    int width = std::max(1, static_cast<int>(
+        acceptedScale.width * RasterConfirmationRelativeScale + 0.5));
+    int height = std::max(1, static_cast<int>(
+        acceptedScale.height * RasterConfirmationRelativeScale + 0.5));
+    return LocalizationScaleAttempt(
+        static_cast<double>(width) / originalWidth,
+        static_cast<double>(height) / originalHeight,
+        width, height, "ambiguity-confirmation-60pct");
+}
+
+static FeatureDotsProcessor *candidateDots(FeatureProcessor &processor,
+                                            const LocalizationCandidate &candidate) {
+    if (candidate.featureIndex < 0 ||
+        candidate.featureIndex >= static_cast<int>(processor.feats.size()))
+        return nullptr;
+    Feature *feature = &processor.feats[candidate.featureIndex];
+    for (FeatureDotsProcessor *dots : processor.featureDots)
+        if (dots->feat == feature && dots->normalization == NormalizationCarrierTemplate)
+            return dots;
+    return nullptr;
+}
+
+static void rejectRasterUnconfirmedCandidate(FeatureDotsProcessor *dots) {
+    if (!dots)
+        return;
+    dots->qyooBits.clear();
+    if (dots->feat) {
+        dots->feat->dotBits.clear();
+        dots->feat->dotBinStr.clear();
+        dots->feat->dotDecStr.clear();
+        dots->feat->projectivePayloadExtracted = false;
+    }
 }
 
 static std::string appendMultiscaleDiagnostics(
@@ -274,7 +316,9 @@ int main(int argc, char* argv[]) {
         processor->processImage();
         int found = processor->findQyoo();
         if (found > 0)
-            processor->findDots(processImage, normalization, fallbackPolicy, !multiscaleRun);
+            processor->findDots(
+                processImage, normalization, fallbackPolicy,
+                normalization != NormalizationCarrierTemplate && !multiscaleRun);
         std::vector<LocalizationCandidate> candidates =
             localizationCandidates(*processor, attempt, static_cast<int>(attemptIndex));
         double runtime = std::chrono::duration<double, std::milli>(
@@ -303,14 +347,86 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    if (multiscaleRun && !selectedCandidates.empty()) {
+    bool confirmationAttempted = false;
+    if (normalization == NormalizationCarrierTemplate && !selectedCandidates.empty() &&
+        std::any_of(selectedCandidates.begin(), selectedCandidates.end(),
+                    [](const LocalizationCandidate &candidate) {
+                        return candidate.requiresRasterConfirmation;
+                    })) {
+        confirmationAttempted = true;
+        const LocalizationScaleAttempt &acceptedScale =
+            plannedScales[static_cast<size_t>(selectedAttempt)];
+        LocalizationScaleAttempt confirmationScale = rasterConfirmationScale(
+            originalWidth, originalHeight, acceptedScale);
+        gdImagePtr confirmationImage = localizationImage(theImage, confirmationScale);
+        std::vector<LocalizationCandidate> confirmationCandidates;
+        if (confirmationImage) {
+            bool ownsConfirmationImage = confirmationImage != theImage;
+            FeatureProcessor confirmationProcessor(
+                confirmationImage, confirmationScale.width, confirmationScale.height);
+            std::chrono::steady_clock::time_point started =
+                std::chrono::steady_clock::now();
+            confirmationProcessor.processImage();
+            int found = confirmationProcessor.findQyoo();
+            if (found > 0)
+                confirmationProcessor.findDots(
+                    confirmationImage, normalization, fallbackPolicy, false);
+            confirmationCandidates = localizationCandidates(
+                confirmationProcessor, confirmationScale,
+                static_cast<int>(attemptSummaries.size()));
+            double runtime = std::chrono::duration<double, std::milli>(
+                std::chrono::steady_clock::now() - started).count();
+            AttemptSummary summary = {
+                confirmationScale,
+                static_cast<int>(confirmationProcessor.feats.size()),
+                confirmationProcessor.numFound,
+                static_cast<int>(confirmationCandidates.size()), runtime};
+            attemptSummaries.push_back(summary);
+            if (ownsConfirmationImage)
+                gdImageDestroy(confirmationImage);
+        }
+
+        std::vector<LocalizationCandidate> qualified;
+        for (const LocalizationCandidate &candidate : selectedCandidates) {
+            if (!candidate.requiresRasterConfirmation) {
+                qualified.push_back(candidate);
+                continue;
+            }
+            FeatureDotsProcessor *dots = candidateDots(*selectedProcessor, candidate);
+            if (dots)
+                dots->carrierTemplateRasterConfirmationAttempted = true;
+            bool samePayload = false;
+            bool conflictingPayload = false;
+            for (const LocalizationCandidate &confirmation : confirmationCandidates) {
+                if (!samePhysicalCarrier(candidate, confirmation))
+                    continue;
+                if (confirmation.payload == candidate.payload)
+                    samePayload = true;
+                else
+                    conflictingPayload = true;
+            }
+            bool passed = samePayload && !conflictingPayload;
+            if (dots)
+                dots->carrierTemplateRasterConfirmationPassed = passed;
+            if (passed)
+                qualified.push_back(candidate);
+            else
+                rejectRasterUnconfirmedCandidate(dots);
+        }
+        selectedCandidates = qualified;
+        if (selectedCandidates.empty())
+            selectedAttempt = -1;
+    }
+
+    if ((multiscaleRun || normalization == NormalizationCarrierTemplate) &&
+        !selectedCandidates.empty()) {
         for (const LocalizationCandidate &candidate : selectedCandidates) {
             std::cout << "Binary = " << candidate.payload << std::endl;
             std::cout << "Qyoo value = " << std::stoull(candidate.payload, nullptr, 2)
                       << std::endl;
         }
     }
-    if (selectedCandidates.empty() && selectedProcessor->numFound == 0)
+    if (selectedCandidates.empty())
         std::cerr << "No Qyoo found in the image." << std::endl;
     else
         logVerbose("Feature processing completed successfully.");
@@ -325,7 +441,8 @@ int main(int argc, char* argv[]) {
         report = appendMultiscaleDiagnostics(
             report, nativeLocalization ? "native-debug-control" : "bounded-camera-v1",
             originalWidth, originalHeight, attemptSummaries, selectedAttempt,
-            selectedCandidates, plannedScales.size());
+            selectedCandidates,
+            plannedScales.size() + (confirmationAttempted ? 1 : 0));
         std::cout << "Diagnostics JSON = " << report << std::endl;
     }
 

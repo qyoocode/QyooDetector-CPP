@@ -48,6 +48,21 @@ const double MaximumCarrierAmbiguityAmount = 0.25;
 // interval is still searched so alternate-payload evidence is not hidden by a
 // local optimizer.
 const int CarrierAmbiguitySearchSteps = 101;
+// A payload loss separation below one approximate dot perimeter can be changed
+// by subpixel raster phase, so Task 09B audits those fits at half-pixel offsets.
+const int CarrierTemplatePhaseAuditGapPixels = 64;
+// Template acceptance must be supported by the carrier structure outside every
+// legal payload-dot disk. This is payload-independent evidence: at least 90%
+// of those pixels must agree with the canonical circle/square carrier.
+const int MaximumCarrierStructuralMismatchPercent = 10;
+// A selected total-loss solution is contradicted when another member of the
+// same projective class removes at least 32 structural mismatches and at least
+// one quarter of the selected solution's structural error.
+const int MinimumStructuralAlternativeImprovementPixels = 32;
+const int MinimumStructuralAlternativeImprovementPercent = 25;
+// If at least half of four independent half-pixel audits choose a different
+// payload, final acceptance requires a separate raster-scale observation.
+const int RasterConfirmationPhaseDisagreements = 2;
 
 static bool refineProjectiveFromVisibleDots(RawImageGray8 *affinePatch,
                                             const ProjectiveTransform &normalizedToImage,
@@ -189,16 +204,33 @@ struct CarrierTemplateFit
     CarrierTemplateFit()
         : valid(false), boundary(false), ambiguous(false), amount(0.0),
           bestLoss(std::numeric_limits<int>::max()),
-          alternativeLoss(std::numeric_limits<int>::max()), distinctPayloads(0) { }
+          alternativeLoss(std::numeric_limits<int>::max()),
+          structuralMismatchPixels(0), structuralSupportPixels(0),
+          structuralBestMismatchPixels(std::numeric_limits<int>::max()),
+          structuralBestAmount(0.0), distinctPayloads(0) { }
     bool valid;
     bool boundary;
     bool ambiguous;
     double amount;
     int bestLoss;
     int alternativeLoss;
+    std::string alternativePayload;
+    int structuralMismatchPixels;
+    int structuralSupportPixels;
+    int structuralBestMismatchPixels;
+    double structuralBestAmount;
+    std::string structuralBestPayload;
     int distinctPayloads;
     std::string payload;
     ProjectiveTransform normalizedToImage;
+};
+
+struct CarrierTemplateEvidence
+{
+    CarrierTemplateEvidence()
+        : structuralMismatchPixels(0), structuralSupportPixels(0) { }
+    int structuralMismatchPixels;
+    int structuralSupportPixels;
 };
 
 static bool oppositePixel(int value, int background)
@@ -209,7 +241,8 @@ static bool oppositePixel(int value, int background)
         (backgroundIsWhite ? value < 160 : value > 96);
 }
 
-static int carrierTemplateLoss(RawImageGray8 *patch, std::string &payload)
+static int carrierTemplateLoss(RawImageGray8 *patch, std::string &payload,
+                               CarrierTemplateEvidence *evidence = nullptr)
 {
     const int radius = PixelsPerDot / 2;
     int backgroundTotal = 0;
@@ -227,6 +260,8 @@ static int carrierTemplateLoss(RawImageGray8 *patch, std::string &payload)
     int width = patch->getSizeX();
     int height = patch->getSizeY();
     std::vector<unsigned char> observed(width * height, 0);
+    std::vector<unsigned char> carrierMismatch(width * height, 0);
+    std::vector<unsigned char> payloadSupport(width * height, 0);
     for (int y = 0; y < height; y++)
         for (int x = 0; x < width; x++)
             observed[y * width + x] = oppositePixel(patch->getPixel(x, y), background);
@@ -246,7 +281,9 @@ static int carrierTemplateLoss(RawImageGray8 *patch, std::string &payload)
                                 (modelY - 0.5) * (modelY - 0.5) <= 0.25;
             bool insideSquare = modelX <= 0.5 && modelY <= 0.5;
             bool predictedOpposite = !(insideCircle || insideSquare);
-            if (predictedOpposite != static_cast<bool>(observed[y * width + x]))
+            bool mismatch = predictedOpposite != static_cast<bool>(observed[y * width + x]);
+            carrierMismatch[y * width + x] = mismatch;
+            if (mismatch)
                 loss++;
         }
 
@@ -267,6 +304,7 @@ static int carrierTemplateLoss(RawImageGray8 *patch, std::string &payload)
                     double dy = modelY - center.y;
                     if (dx * dx + dy * dy >= dotRadius * dotRadius)
                         continue;
+                    payloadSupport[y * width + x] = 1;
                     bool value = observed[y * width + x];
                     zeroLoss += value;
                     oneLoss += !value;
@@ -279,6 +317,14 @@ static int carrierTemplateLoss(RawImageGray8 *patch, std::string &payload)
                 payload[bitIndex] = '1';
             }
         }
+    if (evidence)
+        for (int index = 0; index < width * height; index++)
+            if (!payloadSupport[index])
+            {
+                evidence->structuralSupportPixels++;
+                if (carrierMismatch[index])
+                    evidence->structuralMismatchPixels++;
+            }
     return loss;
 }
 
@@ -288,9 +334,14 @@ static CarrierTemplateFit fitCarrierTemplate(gdImagePtr input,
                                              const ProjectiveTransform &dotTranslation,
                                              const ProjectiveTransform &dotScale,
                                              int patchWidth, int patchHeight,
-                                             int searchSteps)
+                                             int searchSteps,
+                                             double sourceOffsetX = 0.0,
+                                             double sourceOffsetY = 0.0)
 {
     CarrierTemplateFit result;
+    ProjectiveTransform sourceOffset(1.0, 0.0, sourceOffsetX,
+                                     0.0, 1.0, sourceOffsetY,
+                                     0.0, 0.0, 1.0);
     std::map<std::string, int> payloadLosses;
     int bestIndex = -1;
     for (int index = 0; index < searchSteps; index++)
@@ -298,14 +349,23 @@ static CarrierTemplateFit fitCarrierTemplate(gdImagePtr input,
         double fraction = static_cast<double>(index) / (searchSteps - 1);
         double amount = MinimumCarrierAmbiguityAmount +
             fraction * (MaximumCarrierAmbiguityAmount - MinimumCarrierAmbiguityAmount);
-        ProjectiveTransform normalizedToImage = inputScale * outline *
+        ProjectiveTransform normalizedToImage = sourceOffset * inputScale * outline *
             QyooModel::carrierAmbiguityTransform(amount) * dotTranslation * dotScale;
         RawImageGray8 trial(patchWidth, patchHeight);
         if (!trial.copyFromGDImageProjective(input, normalizedToImage))
             continue;
         trial.runContrast();
         std::string payload;
-        int loss = carrierTemplateLoss(&trial, payload);
+        CarrierTemplateEvidence evidence;
+        int loss = carrierTemplateLoss(&trial, payload, &evidence);
+        if (evidence.structuralMismatchPixels < result.structuralBestMismatchPixels ||
+            (evidence.structuralMismatchPixels == result.structuralBestMismatchPixels &&
+             fabs(amount) < fabs(result.structuralBestAmount)))
+        {
+            result.structuralBestMismatchPixels = evidence.structuralMismatchPixels;
+            result.structuralBestAmount = amount;
+            result.structuralBestPayload = payload;
+        }
         auto found = payloadLosses.find(payload);
         if (found == payloadLosses.end() || loss < found->second)
             payloadLosses[payload] = loss;
@@ -316,6 +376,8 @@ static CarrierTemplateFit fitCarrierTemplate(gdImagePtr input,
             result.amount = amount;
             result.payload = payload;
             result.normalizedToImage = normalizedToImage;
+            result.structuralMismatchPixels = evidence.structuralMismatchPixels;
+            result.structuralSupportPixels = evidence.structuralSupportPixels;
             bestIndex = index;
         }
     }
@@ -323,8 +385,11 @@ static CarrierTemplateFit fitCarrierTemplate(gdImagePtr input,
         return result;
     result.distinctPayloads = static_cast<int>(payloadLosses.size());
     for (const auto &entry : payloadLosses)
-        if (entry.first != result.payload)
-            result.alternativeLoss = std::min(result.alternativeLoss, entry.second);
+        if (entry.first != result.payload && entry.second < result.alternativeLoss)
+        {
+            result.alternativeLoss = entry.second;
+            result.alternativePayload = entry.first;
+        }
     result.boundary = bestIndex == 0 || bestIndex == searchSteps - 1;
     result.ambiguous = result.alternativeLoss != std::numeric_limits<int>::max() &&
         result.alternativeLoss - result.bestLoss < MinimumCarrierTemplatePayloadGap;
@@ -369,6 +434,20 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
 	carrierTemplateAmbiguityAmount = 0.0;
 	carrierTemplateBestLoss = -1;
 	carrierTemplateAlternativeLoss = -1;
+	carrierTemplateAlternativePayload.clear();
+	carrierTemplateStructuralMismatchPixels = 0;
+	carrierTemplateStructuralSupportPixels = 0;
+	carrierTemplateStructuralBestMismatchPixels = 0;
+	carrierTemplateStructuralBestAmount = 0.0;
+	carrierTemplateStructuralBestPayload.clear();
+	carrierTemplateStructuralConsistencyRejected = false;
+	carrierTemplateStructuralAlternativeRejected = false;
+	carrierTemplatePhaseAuditAttempted = false;
+	carrierTemplatePhaseValidFits = 0;
+	carrierTemplatePhaseDisagreements = 0;
+	carrierTemplateRasterConfirmationRequired = false;
+	carrierTemplateRasterConfirmationAttempted = false;
+	carrierTemplateRasterConfirmationPassed = false;
 	carrierTemplateDistinctPayloads = 0;
 	carrierTemplateSearchSteps = 0;
 	carrierTemplatePayload.clear();
@@ -460,6 +539,14 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
             carrierTemplateAlternativeLoss =
                 fit.alternativeLoss == std::numeric_limits<int>::max()
                 ? -1 : fit.alternativeLoss;
+            carrierTemplateAlternativePayload = fit.alternativePayload;
+            carrierTemplateStructuralMismatchPixels = fit.structuralMismatchPixels;
+            carrierTemplateStructuralSupportPixels = fit.structuralSupportPixels;
+            carrierTemplateStructuralBestMismatchPixels =
+                fit.structuralBestMismatchPixels == std::numeric_limits<int>::max()
+                ? 0 : fit.structuralBestMismatchPixels;
+            carrierTemplateStructuralBestAmount = fit.structuralBestAmount;
+            carrierTemplateStructuralBestPayload = fit.structuralBestPayload;
             carrierTemplateDistinctPayloads = fit.distinctPayloads;
             carrierTemplatePayload = fit.payload;
             carrierTemplateAmbiguous = fit.ambiguous;
@@ -471,6 +558,47 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
                     : "Carrier-template payload alternatives are ambiguous; payload rejected.");
                 return;
             }
+            carrierTemplateStructuralConsistencyRejected =
+                fit.structuralSupportPixels <= 0 ||
+                fit.structuralMismatchPixels * 100 >=
+                    fit.structuralSupportPixels * MaximumCarrierStructuralMismatchPercent;
+            int structuralImprovement = fit.structuralMismatchPixels -
+                                        fit.structuralBestMismatchPixels;
+            carrierTemplateStructuralAlternativeRejected =
+                fit.structuralBestPayload != fit.payload &&
+                structuralImprovement >= MinimumStructuralAlternativeImprovementPixels &&
+                structuralImprovement * 100 >= fit.structuralMismatchPixels *
+                    MinimumStructuralAlternativeImprovementPercent;
+            if (carrierTemplateStructuralConsistencyRejected ||
+                carrierTemplateStructuralAlternativeRejected)
+            {
+                logVerbose(carrierTemplateStructuralConsistencyRejected
+                    ? "Carrier-template structure disagrees with the Qyoo carrier; payload rejected."
+                    : "A projective-class alternative has materially stronger carrier evidence; payload rejected.");
+                return;
+            }
+            if (fit.valid && fit.alternativeLoss != std::numeric_limits<int>::max() &&
+                fit.alternativeLoss - fit.bestLoss < CarrierTemplatePhaseAuditGapPixels)
+            {
+                carrierTemplatePhaseAuditAttempted = true;
+                const double offsets[][2] = {
+                    {-0.5, 0.0}, {0.5, 0.0}, {0.0, -0.5}, {0.0, 0.5}
+                };
+                for (const auto &offset : offsets)
+                {
+                    CarrierTemplateFit phaseFit = fitCarrierTemplate(
+                        inImage, inputScale, feat->carrierProjectiveMat,
+                        dotTranslation, dotScale, sizeX * 2, sizeY * 2,
+                        carrierTemplateSearchSteps, offset[0], offset[1]);
+                    if (!phaseFit.valid)
+                        continue;
+                    carrierTemplatePhaseValidFits++;
+                    if (phaseFit.payload != fit.payload)
+                        carrierTemplatePhaseDisagreements++;
+                }
+            }
+            carrierTemplateRasterConfirmationRequired =
+                carrierTemplatePhaseDisagreements >= RasterConfirmationPhaseDisagreements;
             if (!grayImg->copyFromGDImageProjective(inImage, fit.normalizedToImage))
                 return;
             normalizedPatchToInput = fit.normalizedToImage;
@@ -1070,8 +1198,9 @@ static const char *jsonBoolean(bool value)
     return value ? "true" : "false";
 }
 
-static const char *normalizationOutcomeCode(const Feature &feature,
-                                            NormalizationMode normalization)
+static const char *normalizationOutcomeCode(
+    const Feature &feature, NormalizationMode normalization,
+    const FeatureDotsProcessor *carrierTemplateDots)
 {
     if (!feature.valid)
         return "not_attempted_candidate_rejected";
@@ -1081,6 +1210,22 @@ static const char *normalizationOutcomeCode(const Feature &feature,
         if (feature.affineNormalizationAvailable) return "payload_extraction_failed";
         return feature.affineNormalizationAttempted
             ? "affine_normalization_unavailable" : "not_attempted";
+    }
+    if (normalization == NormalizationCarrierTemplate && carrierTemplateDots)
+    {
+        if (carrierTemplateDots->carrierTemplateStructuralConsistencyRejected)
+            return "carrier_template_structural_consistency_rejected";
+        if (carrierTemplateDots->carrierTemplateStructuralAlternativeRejected)
+            return "carrier_template_structural_alternative_rejected";
+        if (carrierTemplateDots->carrierTemplateRasterConfirmationAttempted &&
+            !carrierTemplateDots->carrierTemplateRasterConfirmationPassed)
+            return "carrier_template_raster_confirmation_rejected";
+        if (carrierTemplateDots->carrierTemplateBoundaryRejected)
+            return "carrier_template_search_boundary_rejected";
+        if (carrierTemplateDots->carrierTemplateAmbiguous)
+            return "carrier_template_ambiguous_rejected";
+        if (carrierTemplateDots->carrierTemplateSamplerDisagreed)
+            return "carrier_template_sampler_disagreement_rejected";
     }
     if (feature.projectivePayloadExtracted)
     {
@@ -1312,7 +1457,8 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
         output << ",\"payload_extracted\":"
                << jsonBoolean(feature.affinePayloadExtracted || feature.projectivePayloadExtracted);
         output << ",\"normalization_outcome\":"
-               << jsonString(normalizationOutcomeCode(feature, normalization));
+               << jsonString(normalizationOutcomeCode(
+                   feature, normalization, carrierTemplateDots));
         output << ",\"carrier_template_diagnostics\":";
         if (!carrierTemplateDots)
             output << "null";
@@ -1332,6 +1478,49 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
             if (carrierTemplateDots->carrierTemplateAlternativeLoss >= 0)
                 output << carrierTemplateDots->carrierTemplateAlternativeLoss;
             else output << "null";
+            output << ",\"alternative_payload\":"
+                   << (carrierTemplateDots->carrierTemplateAlternativePayload.empty()
+                       ? "null" : jsonString(
+                           carrierTemplateDots->carrierTemplateAlternativePayload));
+            output << ",\"structural_mismatch_pixels\":"
+                   << carrierTemplateDots->carrierTemplateStructuralMismatchPixels;
+            output << ",\"structural_support_pixels\":"
+                   << carrierTemplateDots->carrierTemplateStructuralSupportPixels;
+            output << ",\"structural_mismatch_fraction\":";
+            if (carrierTemplateDots->carrierTemplateStructuralSupportPixels > 0)
+                output << static_cast<double>(
+                    carrierTemplateDots->carrierTemplateStructuralMismatchPixels) /
+                    carrierTemplateDots->carrierTemplateStructuralSupportPixels;
+            else output << "null";
+            output << ",\"structural_best_mismatch_pixels\":"
+                   << carrierTemplateDots->carrierTemplateStructuralBestMismatchPixels;
+            output << ",\"structural_best_amount\":"
+                   << carrierTemplateDots->carrierTemplateStructuralBestAmount;
+            output << ",\"structural_best_payload\":"
+                   << (carrierTemplateDots->carrierTemplateStructuralBestPayload.empty()
+                       ? "null" : jsonString(
+                           carrierTemplateDots->carrierTemplateStructuralBestPayload));
+            output << ",\"structural_consistency_rejected\":"
+                   << jsonBoolean(
+                       carrierTemplateDots->carrierTemplateStructuralConsistencyRejected);
+            output << ",\"structural_alternative_rejected\":"
+                   << jsonBoolean(
+                       carrierTemplateDots->carrierTemplateStructuralAlternativeRejected);
+            output << ",\"phase_audit_attempted\":"
+                   << jsonBoolean(carrierTemplateDots->carrierTemplatePhaseAuditAttempted);
+            output << ",\"phase_valid_fits\":"
+                   << carrierTemplateDots->carrierTemplatePhaseValidFits;
+            output << ",\"phase_disagreements\":"
+                   << carrierTemplateDots->carrierTemplatePhaseDisagreements;
+            output << ",\"raster_confirmation_required\":"
+                   << jsonBoolean(
+                       carrierTemplateDots->carrierTemplateRasterConfirmationRequired);
+            output << ",\"raster_confirmation_attempted\":"
+                   << jsonBoolean(
+                       carrierTemplateDots->carrierTemplateRasterConfirmationAttempted);
+            output << ",\"raster_confirmation_passed\":"
+                   << jsonBoolean(
+                       carrierTemplateDots->carrierTemplateRasterConfirmationPassed);
             output << ",\"distinct_payloads\":"
                    << carrierTemplateDots->carrierTemplateDistinctPayloads;
             output << ",\"search_steps\":"
@@ -1457,6 +1646,42 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
                 if (dots->carrierTemplateAlternativeLoss >= 0)
                     output << dots->carrierTemplateAlternativeLoss;
                 else output << "null";
+                output << ",\"alternative_payload\":"
+                       << (dots->carrierTemplateAlternativePayload.empty()
+                           ? "null" : jsonString(dots->carrierTemplateAlternativePayload));
+                output << ",\"structural_mismatch_pixels\":"
+                       << dots->carrierTemplateStructuralMismatchPixels;
+                output << ",\"structural_support_pixels\":"
+                       << dots->carrierTemplateStructuralSupportPixels;
+                output << ",\"structural_mismatch_fraction\":";
+                if (dots->carrierTemplateStructuralSupportPixels > 0)
+                    output << static_cast<double>(
+                        dots->carrierTemplateStructuralMismatchPixels) /
+                        dots->carrierTemplateStructuralSupportPixels;
+                else output << "null";
+                output << ",\"structural_best_mismatch_pixels\":"
+                       << dots->carrierTemplateStructuralBestMismatchPixels;
+                output << ",\"structural_best_amount\":"
+                       << dots->carrierTemplateStructuralBestAmount;
+                output << ",\"structural_best_payload\":"
+                       << (dots->carrierTemplateStructuralBestPayload.empty()
+                           ? "null" : jsonString(dots->carrierTemplateStructuralBestPayload));
+                output << ",\"structural_consistency_rejected\":"
+                       << jsonBoolean(dots->carrierTemplateStructuralConsistencyRejected);
+                output << ",\"structural_alternative_rejected\":"
+                       << jsonBoolean(dots->carrierTemplateStructuralAlternativeRejected);
+                output << ",\"phase_audit_attempted\":"
+                       << jsonBoolean(dots->carrierTemplatePhaseAuditAttempted);
+                output << ",\"phase_valid_fits\":"
+                       << dots->carrierTemplatePhaseValidFits;
+                output << ",\"phase_disagreements\":"
+                       << dots->carrierTemplatePhaseDisagreements;
+                output << ",\"raster_confirmation_required\":"
+                       << jsonBoolean(dots->carrierTemplateRasterConfirmationRequired);
+                output << ",\"raster_confirmation_attempted\":"
+                       << jsonBoolean(dots->carrierTemplateRasterConfirmationAttempted);
+                output << ",\"raster_confirmation_passed\":"
+                       << jsonBoolean(dots->carrierTemplateRasterConfirmationPassed);
                 output << ",\"distinct_payloads\":" << dots->carrierTemplateDistinctPayloads;
                 output << ",\"search_steps\":" << dots->carrierTemplateSearchSteps;
                 output << ",\"fitted_payload\":"
