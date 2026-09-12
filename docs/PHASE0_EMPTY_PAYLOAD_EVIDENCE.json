@@ -1,0 +1,382 @@
+{
+  "baselineLibrarySHA256": "94ceaf8c230bca2b287b63113c3d9fa7c7adfa8cc008177c9fa448722af0b800",
+  "candidateLibrarySHA256": "3a4c15b5dc55cfc7a42eac3cfd9efa5918ffdd71bd19801e1c07722735c20376",
+  "results": [
+    {
+      "frameID": "07EA3A28-266F-4A41-9AC7-BBDC87EE974D",
+      "source": "camera",
+      "inputSHA256": "7d49285611d16ae4c3da310d6559417ecb77755b678ca900ddc955f5b074294f",
+      "recorded": [
+        "23457073002"
+      ],
+      "before": [
+        "23457073002"
+      ],
+      "after": [
+        "23457073002"
+      ]
+    },
+    {
+      "frameID": "0E254B7A-AE60-4CCD-A040-58C682689BED",
+      "source": "fixture(\"all_zero.png\")",
+      "inputSHA256": "1ab798d93492c0c7afb7ef2aad6aa9bb5a7487d1c603cfb9e7ca4079e8798838",
+      "recorded": [
+        "0"
+      ],
+      "before": [
+        "0"
+      ],
+      "after": [
+        "0"
+      ]
+    },
+    {
+      "frameID": "190A2347-E4C1-46C6-8FBD-6DEB47542DB5",
+      "source": "fixture(\"all_zero.png\")",
+      "inputSHA256": "1ab798d93492c0c7afb7ef2aad6aa9bb5a7487d1c603cfb9e7ca4079e8798838",
+      "recorded": [
+        "0"
+      ],
+      "before": [
+        "0"
+      ],
+      "after": [
+        "0"
+      ]
+    },
+    {
+      "frameID": "1A5D3733-2992-4262-92F9-9927397FE66B",
+      "source": "fixture(\"all_zero.png\")",
+      "inputSHA256": "1ab798d93492c0c7afb7ef2aad6aa9bb5a7487d1c603cfb9e7ca4079e8798838",
+      "recorded": [
+        "0"
+      ],
+      "before": [
+        "0"
+      ],
+      "after": [
+        "0"
+      ]
+    },
+    {
+      "frameID": "1CD8FC47-6048-4625-BD0D-5C75417CC96F",
+      "source": "fixture(\"all_zero.png\")",
+      "inputSHA256": "1ab798d93492c0c7afb7ef2aad6aa9bb5a7487d1c603cfb9e7ca4079e8798838",
+      "recorded": [
+        "0"
+      ],
+      "before": [
+        "0"
+      ],
+      "after": [
+        "0"
+      ]
+    },
+    {
+      "frameID": "2E9CD9F1-E5FF-4813-ABDE-F8A311D26AD4",
+      "source": "camera",
+      "inputSHA256": "10d60224d785ed0ba411307cdaef51dffca060b7d04174c60bc4fca30c548180",
+      "recorded": [
+        "23457073002"
+      ],
+      "before": [
+        "23457073002"
+      ],
+      "after": [
+        "23457073002"
+      ]
+    },
+    {
+      "frameID": "3431BF75-F620-44E6-9CFC-BEB24088569F",
+      "source": "camera",
+      "inputSHA256": "4469fc6c9465232f69ca15aa63d4af16407ed010e63d617d573f3b79bc8ef7fc",
+      "recorded": [
+        "0"
+      ],
+      "before": [
+        "0"
+      ],
+      "after": []
+    },
+    {
+      "frameID": "57351D28-B8AE-4A68-9A47-7A18327794CB",
+      "source": "camera",
+      "inputSHA256": "aedc027c40bd6cefe4491e5a094c275820136397bba249c8654cc9ef11e9015c",
+      "recorded": [
+        "23123657834"
+      ],
+      "before": [
+        "23123657834"
+      ],
+      "after": [
+        "23123657834"
+      ]
+    },
+    {
+      "frameID": "5806FACB-35EE-4906-98B6-44B1A93F3BDA",
+      "source": "fixture(\"all_zero.png\")",
+      "inputSHA256": "1ab798d93492c0c7afb7ef2aad6aa9bb5a7487d1c603cfb9e7ca4079e8798838",
+      "recorded": [
+        "0"
+      ],
+      "before": [
+        "0"
+      ],
+      "after": [
+        "0"
+      ]
+    },
+    {
+      "frameID": "644AECF1-AAC9-46A5-8E0F-323783F25BDD",
+      "source": "fixture(\"all_zero.png\")",
+      "inputSHA256": "1ab798d93492c0c7afb7ef2aad6aa9bb5a7487d1c603cfb9e7ca4079e8798838",
+      "recorded": [
+        "0"
+      ],
+      "before": [
+        "0"
+      ],
+      "after": [
+        "0"
+      ]
+    },
+    {
+      "frameID": "65AF5254-2106-47F8-AD90-1332ECF21A2A",
+      "source": "camera",
+      "inputSHA256": "48d2951c2971beeacf4e0370ac30de01b9c04ce529bbcfde0e281a75013006c5",
+      "recorded": [
+        "23293060458"
+      ],
+      "before": [
+        "23293060458"
+      ],
+      "after": [
+        "23293060458"
+      ]
+    },
+    {
+      "frameID": "705AB5AB-8F72-4273-ACF7-D11B4ABF2242",
+      "source": "fixture(\"all_zero.png\")",
+      "inputSHA256": "1ab798d93492c0c7afb7ef2aad6aa9bb5a7487d1c603cfb9e7ca4079e8798838",
+      "recorded": [
+        "0"
+      ],
+      "before": [
+        "0"
+      ],
+      "after": [
+        "0"
+      ]
+    },
+    {
+      "frameID": "73B09A1F-F571-4A8C-A0D2-571E9AB54EC5",
+      "source": "camera",
+      "inputSHA256": "a34d1713df3bb941f6cf01d0fd854753d1b0f5e25ffab6b0913d70cf9876511d",
+      "recorded": [
+        "23457073002"
+      ],
+      "before": [
+        "23457073002"
+      ],
+      "after": [
+        "23457073002"
+      ]
+    },
+    {
+      "frameID": "7CC2FAEC-9371-498C-AFE1-0DC93353F6FF",
+      "source": "camera",
+      "inputSHA256": "17c66f5f0fa35929f840824b2b5d22c3c80385ea147bd1a6ad8050f99241bd05",
+      "recorded": [
+        "0"
+      ],
+      "before": [
+        "0"
+      ],
+      "after": []
+    },
+    {
+      "frameID": "803FBF5B-C46D-4C2F-8E68-0B7D3B1A6253",
+      "source": "fixture(\"all_zero.png\")",
+      "inputSHA256": "1ab798d93492c0c7afb7ef2aad6aa9bb5a7487d1c603cfb9e7ca4079e8798838",
+      "recorded": [
+        "0"
+      ],
+      "before": [
+        "0"
+      ],
+      "after": [
+        "0"
+      ]
+    },
+    {
+      "frameID": "83EF519B-DD42-422B-9777-8BB3B065C154",
+      "source": "fixture(\"all_zero.png\")",
+      "inputSHA256": "1ab798d93492c0c7afb7ef2aad6aa9bb5a7487d1c603cfb9e7ca4079e8798838",
+      "recorded": [
+        "0"
+      ],
+      "before": [
+        "0"
+      ],
+      "after": [
+        "0"
+      ]
+    },
+    {
+      "frameID": "84EC31CD-A6EE-4B00-B673-E45E90072353",
+      "source": "camera",
+      "inputSHA256": "4e7c560894749a362a907d44997016246f907c959d69e4a1995ebf05ca1f0468",
+      "recorded": [
+        "23123657834"
+      ],
+      "before": [
+        "23123657834"
+      ],
+      "after": [
+        "23123657834"
+      ]
+    },
+    {
+      "frameID": "969657D4-8DC2-4741-8FA5-170F57E48D07",
+      "source": "camera",
+      "inputSHA256": "d3672a621e1ee8f3f88da8e2f60ea4c507e7761b19c7edab46a81d07f0b4e276",
+      "recorded": [
+        "23293060458"
+      ],
+      "before": [
+        "23293060458"
+      ],
+      "after": [
+        "23293060458"
+      ]
+    },
+    {
+      "frameID": "BAE118F2-2139-4D30-A32E-49E9E9E02AEC",
+      "source": "fixture(\"all_zero.png\")",
+      "inputSHA256": "1ab798d93492c0c7afb7ef2aad6aa9bb5a7487d1c603cfb9e7ca4079e8798838",
+      "recorded": [
+        "0"
+      ],
+      "before": [
+        "0"
+      ],
+      "after": [
+        "0"
+      ]
+    },
+    {
+      "frameID": "BE0C57C2-1BB2-451A-8C5C-D0BC061DA935",
+      "source": "camera",
+      "inputSHA256": "9a88a8ff18a5c0979e070c561d7da6bca7ca307627b1c0ef6db14561fbe25b9e",
+      "recorded": [
+        "23457073002"
+      ],
+      "before": [
+        "23457073002"
+      ],
+      "after": [
+        "23457073002"
+      ]
+    },
+    {
+      "frameID": "C36C82E4-DEFB-472B-8AE2-32C13E84EAA8",
+      "source": "fixture(\"all_zero.png\")",
+      "inputSHA256": "1ab798d93492c0c7afb7ef2aad6aa9bb5a7487d1c603cfb9e7ca4079e8798838",
+      "recorded": [
+        "0"
+      ],
+      "before": [
+        "0"
+      ],
+      "after": [
+        "0"
+      ]
+    },
+    {
+      "frameID": "C5337289-0672-48C2-ACEB-C332C82AD8B5",
+      "source": "camera",
+      "inputSHA256": "e6bf0a82f53fffc0698a53eab68187d914f68f8d22d036feaecc31d0fdc5f877",
+      "recorded": [
+        "23457073002"
+      ],
+      "before": [
+        "23457073002"
+      ],
+      "after": [
+        "23457073002"
+      ]
+    },
+    {
+      "frameID": "E60C9657-B0B9-4FAB-914F-19CF65AAF9C7",
+      "source": "fixture(\"all_zero.png\")",
+      "inputSHA256": "1ab798d93492c0c7afb7ef2aad6aa9bb5a7487d1c603cfb9e7ca4079e8798838",
+      "recorded": [
+        "0"
+      ],
+      "before": [
+        "0"
+      ],
+      "after": [
+        "0"
+      ]
+    },
+    {
+      "frameID": "EA89FF97-2EA3-4D24-969F-778B6DDDC662",
+      "source": "camera",
+      "inputSHA256": "4b83fc08a4c9554ecbf9b71e4df072437a46a7f5dcb8020f6b01ce6ec4b2b198",
+      "recorded": [
+        "23293060458"
+      ],
+      "before": [
+        "23293060458"
+      ],
+      "after": [
+        "23293060458"
+      ]
+    },
+    {
+      "frameID": "FBDAB84D-5CF1-4516-B4CF-2A8E2E8C53F3",
+      "source": "camera",
+      "inputSHA256": "3f7ba7d9a8a310ac13d3d78ddd117f99d91e39c04e30fcecd582c65d8ec50ee8",
+      "recorded": [
+        "23293060458"
+      ],
+      "before": [
+        "23293060458"
+      ],
+      "after": [
+        "23293060458"
+      ]
+    }
+  ],
+  "frozen193Before": {
+    "cases": 193,
+    "exact": 114,
+    "negative_rejected": 72,
+    "rejected": 7,
+    "mean_runtime_ms": 493.1751097096468,
+    "mean_total_raw_features": 734.2383419689119,
+    "mean_attempts": 1.0
+  },
+  "frozen193After": {
+    "cases": 193,
+    "exact": 114,
+    "negative_rejected": 72,
+    "rejected": 7,
+    "mean_runtime_ms": 494.14980765118463,
+    "mean_total_raw_features": 734.2383419689119,
+    "mean_attempts": 1.0
+  },
+  "negative320After": {
+    "cases": 320,
+    "negative_rejected": 320,
+    "mean_runtime_ms": 127.8832667885581,
+    "mean_total_raw_features": 325.921875,
+    "mean_attempts": 1.0
+  },
+  "physicalAcceptance": "pending",
+  "knownWrongFrames": [
+    "7CC2FAEC-9371-498C-AFE1-0DC93353F6FF",
+    "3431BF75-F620-44E6-9CFC-BEB24088569F"
+  ]
+}

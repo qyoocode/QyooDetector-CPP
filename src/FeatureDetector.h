@@ -99,6 +99,8 @@ protected:
   bool carrierTemplateAmbiguous;
   bool carrierTemplateBoundaryRejected;
   bool carrierTemplateSamplerDisagreed;
+  bool carrierTemplateEmptyPayloadRejected;
+  int carrierTemplateSampledForegroundPixels;
   double carrierTemplateAmbiguityAmount;
   int carrierTemplateBestLoss;
   int carrierTemplateAlternativeLoss;

@@ -433,6 +433,8 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
 	carrierTemplateAmbiguous = false;
 	carrierTemplateBoundaryRejected = false;
 	carrierTemplateSamplerDisagreed = false;
+	carrierTemplateEmptyPayloadRejected = false;
+	carrierTemplateSampledForegroundPixels = 0;
 	carrierTemplateAmbiguityAmount = 0.0;
 	carrierTemplateBestLoss = -1;
 	carrierTemplateAlternativeLoss = -1;
@@ -842,6 +844,8 @@ void FeatureDotsProcessor::findDotsGray() {
     feat->dotBinStr.clear();
     feat->dotDecStr.clear();
     qyooBits = "";  // Start fresh with qyooBits
+    carrierTemplateSampledForegroundPixels = 0;
+    carrierTemplateEmptyPayloadRejected = false;
 
     gdImagePtr outImg = nullptr;
     int colorRed = 0;
@@ -875,6 +879,7 @@ void FeatureDotsProcessor::findDotsGray() {
                                   radFilter, avgPixel, &measurement);
             sampleValidCount[row][pos] = measurement.validCount;
             sampleMatchCount[row][pos] = measurement.matchCount;
+            carrierTemplateSampledForegroundPixels += measurement.matchCount;
             sampleCenterGray[row][pos] = measurement.centerGray;
             sampleMatchRatio[row][pos] = measurement.ratio;
             sampleMeanGray[row][pos] = measurement.meanGray;
@@ -929,6 +934,26 @@ void FeatureDotsProcessor::findDotsGray() {
         carrierTemplateSamplerDisagreed = true;
         logVerbose(featProc ? featProc->logger : nullptr,
                    "Carrier-template fitted payload and deterministic sampler disagree; payload rejected.");
+        qyooBits.clear();
+        feat->dotBits.clear();
+        if (outImg)
+            gdImageDestroy(outImg);
+        delete radFilter;
+        return;
+    }
+    // A blurred populated carrier can put every cell below the dot threshold.
+    // Template/sampler agreement then gives a false empty payload. Require an
+    // empty grid to contain less than one dot's minimum foreground support in
+    // aggregate, using the same pixels and threshold as the existing sampler.
+    // This only rejects contradictory evidence; it never changes a decoded bit.
+    if (normalization == NormalizationCarrierTemplate &&
+        qyooBits == std::string(QYOOSIZE * QYOOSIZE, '0') &&
+        carrierTemplateSampledForegroundPixels >=
+            static_cast<int>(ceil(PassRatio * radFilter->getFact())))
+    {
+        carrierTemplateEmptyPayloadRejected = true;
+        logVerbose(featProc ? featProc->logger : nullptr,
+                   "Empty payload contains a dot's worth of foreground evidence; payload rejected.");
         qyooBits.clear();
         feat->dotBits.clear();
         if (outImg)
@@ -1266,6 +1291,8 @@ static const char *normalizationOutcomeCode(
             return "carrier_template_ambiguous_rejected";
         if (carrierTemplateDots->carrierTemplateSamplerDisagreed)
             return "carrier_template_sampler_disagreement_rejected";
+        if (carrierTemplateDots->carrierTemplateEmptyPayloadRejected)
+            return "carrier_template_empty_payload_rejected";
     }
     if (feature.projectivePayloadExtracted)
     {
@@ -1573,7 +1600,11 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
             output << ",\"search_boundary_rejected\":"
                    << jsonBoolean(carrierTemplateDots->carrierTemplateBoundaryRejected);
             output << ",\"sampler_disagreement_rejected\":"
-                   << jsonBoolean(carrierTemplateDots->carrierTemplateSamplerDisagreed) << '}';
+                   << jsonBoolean(carrierTemplateDots->carrierTemplateSamplerDisagreed);
+            output << ",\"empty_payload_rejected\":"
+                   << jsonBoolean(carrierTemplateDots->carrierTemplateEmptyPayloadRejected);
+            output << ",\"sampled_foreground_pixels\":"
+                   << carrierTemplateDots->carrierTemplateSampledForegroundPixels << '}';
         }
         if (includeVisualGeometry)
         {
@@ -1732,7 +1763,11 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
                 output << ",\"search_boundary_rejected\":"
                        << jsonBoolean(dots->carrierTemplateBoundaryRejected);
                 output << ",\"sampler_disagreement_rejected\":"
-                       << jsonBoolean(dots->carrierTemplateSamplerDisagreed) << '}';
+                       << jsonBoolean(dots->carrierTemplateSamplerDisagreed);
+                output << ",\"empty_payload_rejected\":"
+                       << jsonBoolean(dots->carrierTemplateEmptyPayloadRejected);
+                output << ",\"sampled_foreground_pixels\":"
+                       << dots->carrierTemplateSampledForegroundPixels << '}';
                 output << ",\"patch_size\":{\"width\":" << dots->grayImg->getSizeX()
                        << ",\"height\":" << dots->grayImg->getSizeY() << '}';
                 output << ",\"background_sample\":{\"center\":[" << PixelsPerDot / 2

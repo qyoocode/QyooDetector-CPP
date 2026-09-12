@@ -55,6 +55,7 @@ PROJECTIVE_SAMPLING_TEST = $(TEST_BIN_DIR)/test_projective_sampling
 CARRIER_AMBIGUITY_TEST = $(TEST_BIN_DIR)/test_carrier_ambiguity
 MULTISCALE_LOCALIZATION_TEST = $(TEST_BIN_DIR)/test_multiscale_localization
 PUBLIC_API_TEST = $(TEST_BIN_DIR)/test_public_api
+EMPTY_PAYLOAD_TEST = $(TEST_BIN_DIR)/test_empty_payload
 PUBLIC_API_SANITIZER_TEST = $(TEST_BIN_DIR)/test_public_api_sanitized
 PUBLIC_API_TEST_IMAGE ?= input/qyoo-samples/IMG_5172.jpg
 MULTISCALE_CLI_TEST = $(TEST_DIR)/test_multiscale_cli.py
@@ -116,6 +117,13 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(HEADER_FILES) $(PUBLIC_HEADERS) | $(OBJ_DIR)
 
 $(PUBLIC_API_TEST): $(TEST_DIR)/test_public_api.cpp $(STATIC_LIBRARY) | $(TEST_BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< $(STATIC_LIBRARY) -o $@ $(LDFLAGS)
+
+$(EMPTY_PAYLOAD_TEST): $(TEST_DIR)/test_empty_payload.cpp $(STATIC_LIBRARY) | $(TEST_BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(STATIC_LIBRARY) -o $@ $(LDFLAGS)
+
+.PHONY: test-empty-payload
+test-empty-payload: $(EMPTY_PAYLOAD_TEST)
+	$(EMPTY_PAYLOAD_TEST)
 
 $(PUBLIC_API_SANITIZER_TEST): $(TEST_DIR)/test_public_api.cpp $(CORE_SRC_FILES) $(HEADER_FILES) $(PUBLIC_HEADERS) | $(TEST_BIN_DIR)
 	$(CXX) $(CXXFLAGS) -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined \
