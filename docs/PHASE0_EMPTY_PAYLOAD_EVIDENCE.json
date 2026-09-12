@@ -363,7 +363,7 @@
     "exact": 114,
     "negative_rejected": 72,
     "rejected": 7,
-    "mean_runtime_ms": 494.14980765118463,
+    "mean_runtime_ms": 490.8540286968216,
     "mean_total_raw_features": 734.2383419689119,
     "mean_attempts": 1.0
   },
@@ -378,5 +378,7 @@
   "knownWrongFrames": [
     "7CC2FAEC-9371-498C-AFE1-0DC93353F6FF",
     "3431BF75-F620-44E6-9CFC-BEB24088569F"
-  ]
+  ],
+  "finalCLISHA256": "6a15cd9be38c77787a77c78657041b92782207a751e068b7eb22d60e10d9e214",
+  "finalQualificationSource": "5b23d087b702300d5d36e82ebda91dcca74728b1"
 }
