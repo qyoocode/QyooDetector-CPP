@@ -1,0 +1,173 @@
+{
+  "date": "2026-09-11",
+  "source": "Exact PNG copies from owner Downloads; originals unchanged",
+  "cppRevision": "3a7002fd7cc6075d9bfb19fe537585dc277a9267",
+  "swiftRevision": "021becc75bd35834007aeca7a2db0f6451e8692c",
+  "detectorChanged": false,
+  "result": "ID-0 acceptance NOT reproduced from complete screenshots. Field incident remains unresolved; these are UI screenshots, not triggering raw camera frames.",
+  "readiness": "Mainnet/App Store blocked pending raw-frame investigation and safety qualification",
+  "cases": [
+    {
+      "path": "possible-wrong-accept/qyoo-baylor1.PNG",
+      "sha256": "84dd5aa40ff6b5d5c991426698689fb6c62c9d8a217496ad30d32293cfc4a02e",
+      "classification": "possible-wrong-accept",
+      "imageSize": {
+        "width": 1125,
+        "height": 2436
+      },
+      "cliAcceptedBinaries": [],
+      "cliStages": {
+        "raw_feature_count": 1609,
+        "size_pass_count": 3,
+        "corner_selected_count": 3,
+        "corner_geometry_pass_count": 2,
+        "outline_validation_pass_count": 0,
+        "accepted_candidate_count": 0,
+        "projective_outline_available_count": 0,
+        "affine_normalization_attempted_count": 0,
+        "projective_normalization_attempted_count": 0,
+        "affine_fallback_count": 0,
+        "affine_fallback_rejected_count": 0,
+        "normalization_available_count": 0,
+        "payload_extracted_count": 0
+      },
+      "cliMultiscale": {
+        "policy": "bounded-camera-v1",
+        "resampler": "libgd_GD_LANCZOS3",
+        "original_image_size": {
+          "width": 1125,
+          "height": 2436
+        },
+        "planned_attempt_count": 3,
+        "attempted_scale_count": 3,
+        "another_scale_attempted": true,
+        "remaining_scales_skipped_after_success": 0,
+        "selected_attempt_index": null,
+        "attempts": [
+          {
+            "attempt_index": 0,
+            "label": "long-edge-1320",
+            "input_scale_x": 0.542222,
+            "input_scale_y": 0.541872,
+            "resampled_width": 610,
+            "resampled_height": 1320,
+            "raw_feature_count": 1054,
+            "accepted_candidate_count": 0,
+            "payload_count": 0,
+            "runtime_ms": 171.871
+          },
+          {
+            "attempt_index": 1,
+            "label": "long-edge-1600",
+            "input_scale_x": 0.656889,
+            "input_scale_y": 0.656814,
+            "resampled_width": 739,
+            "resampled_height": 1600,
+            "raw_feature_count": 1226,
+            "accepted_candidate_count": 0,
+            "payload_count": 0,
+            "runtime_ms": 248.513
+          },
+          {
+            "attempt_index": 2,
+            "label": "native-fallback",
+            "input_scale_x": 1,
+            "input_scale_y": 1,
+            "resampled_width": 1125,
+            "resampled_height": 2436,
+            "raw_feature_count": 1609,
+            "accepted_candidate_count": 0,
+            "payload_count": 0,
+            "runtime_ms": 557.887
+          }
+        ],
+        "accepted_candidates_original_coordinates": []
+      },
+      "swiftReplay": [
+        "dimensions=1125x2436 stride=4544",
+        "iterations=1 payloads=[]"
+      ]
+    },
+    {
+      "path": "acquisition-rejection/qyoo-baylor2-wont-scan.PNG",
+      "sha256": "c5b222d1ae3f9fcc04166cf6d7396d63947a9100d363d63b0f1d672d58391fde",
+      "classification": "acquisition-rejection",
+      "imageSize": {
+        "width": 1125,
+        "height": 2436
+      },
+      "cliAcceptedBinaries": [],
+      "cliStages": {
+        "raw_feature_count": 2443,
+        "size_pass_count": 2,
+        "corner_selected_count": 2,
+        "corner_geometry_pass_count": 1,
+        "outline_validation_pass_count": 0,
+        "accepted_candidate_count": 0,
+        "projective_outline_available_count": 0,
+        "affine_normalization_attempted_count": 0,
+        "projective_normalization_attempted_count": 0,
+        "affine_fallback_count": 0,
+        "affine_fallback_rejected_count": 0,
+        "normalization_available_count": 0,
+        "payload_extracted_count": 0
+      },
+      "cliMultiscale": {
+        "policy": "bounded-camera-v1",
+        "resampler": "libgd_GD_LANCZOS3",
+        "original_image_size": {
+          "width": 1125,
+          "height": 2436
+        },
+        "planned_attempt_count": 3,
+        "attempted_scale_count": 3,
+        "another_scale_attempted": true,
+        "remaining_scales_skipped_after_success": 0,
+        "selected_attempt_index": null,
+        "attempts": [
+          {
+            "attempt_index": 0,
+            "label": "long-edge-1320",
+            "input_scale_x": 0.542222,
+            "input_scale_y": 0.541872,
+            "resampled_width": 610,
+            "resampled_height": 1320,
+            "raw_feature_count": 1606,
+            "accepted_candidate_count": 0,
+            "payload_count": 0,
+            "runtime_ms": 182.468
+          },
+          {
+            "attempt_index": 1,
+            "label": "long-edge-1600",
+            "input_scale_x": 0.656889,
+            "input_scale_y": 0.656814,
+            "resampled_width": 739,
+            "resampled_height": 1600,
+            "raw_feature_count": 1800,
+            "accepted_candidate_count": 0,
+            "payload_count": 0,
+            "runtime_ms": 259.302
+          },
+          {
+            "attempt_index": 2,
+            "label": "native-fallback",
+            "input_scale_x": 1,
+            "input_scale_y": 1,
+            "resampled_width": 1125,
+            "resampled_height": 2436,
+            "raw_feature_count": 2443,
+            "accepted_candidate_count": 0,
+            "payload_count": 0,
+            "runtime_ms": 583.237
+          }
+        ],
+        "accepted_candidates_original_coordinates": []
+      },
+      "swiftReplay": [
+        "dimensions=1125x2436 stride=4544",
+        "iterations=1 payloads=[]"
+      ]
+    }
+  ]
+}
