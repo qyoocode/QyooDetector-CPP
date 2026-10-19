@@ -17,8 +17,7 @@ AR = ar
 GD_CFLAGS := $(shell pkg-config --cflags gdlib 2>/dev/null)
 GD_LIBS := $(shell pkg-config --libs gdlib 2>/dev/null)
 ifeq ($(strip $(GD_LIBS)),)
-GD_CFLAGS = -I/opt/homebrew/include
-GD_LIBS = -L/opt/homebrew/lib -lgd
+GD_LIBS = -lgd
 endif
 CXXFLAGS = -Wall -std=c++11 -fPIC -fvisibility=hidden -I. -I$(INCLUDE_DIR) $(GD_CFLAGS)
 LDFLAGS = $(GD_LIBS)
@@ -241,16 +240,21 @@ test-fallback-policy: $(EXECUTABLE)
 test-corner-edge-pair: $(EXECUTABLE)
 	python3 $(TEST_DIR)/test_corner_edge_pair.py $(EXECUTABLE) $(CORNER_PAIR_IMAGE) $(CORNER_PAIR_EXPECTED_BITS) $(CORNER_PAIR_NEGATIVE)
 
-# Move generated files to a caller-selected, task-scoped recovery directory.
-# Example: make clean CLEAN_TRASH_DIR=../recovery/trash/task-08/detector-build
+# Build output may contain evidence. Cleanup requires an explicit recoverable move.
 .PHONY: clean
 clean:
-	@test -n "$(CLEAN_TRASH_DIR)" || \
-		(echo "Refusing permanent cleanup; set CLEAN_TRASH_DIR under recovery/trash/task-NN/." && exit 1)
-	@test ! -e $(CLEAN_TRASH_DIR)/obj
-	@test ! -e $(CLEAN_TRASH_DIR)/bin
-	@test ! -e $(CLEAN_TRASH_DIR)/lib
-	mkdir -p $(CLEAN_TRASH_DIR)
-	@if test -d $(OBJ_DIR); then mv $(OBJ_DIR) $(CLEAN_TRASH_DIR)/obj; fi
-	@if test -d $(BIN_DIR); then mv $(BIN_DIR) $(CLEAN_TRASH_DIR)/bin; fi
-	@if test -d $(LIB_DIR); then mv $(LIB_DIR) $(CLEAN_TRASH_DIR)/lib; fi
+	@echo "Automatic cleanup is disabled. Preserve needed evidence, then move obj/, bin/, and lib/ to a recoverable external location with a provenance manifest."
+	@exit 1
+
+# Self-contained checks: no external recovery corpus is required.
+.PHONY: test-public
+test-public: test-public-header test-public-api test-projective-transform test-multiscale-localization test-public-smoke
+
+.PHONY: test-public-smoke
+test-public-smoke: $(EXECUTABLE)
+	python3 $(TEST_DIR)/test_public_smoke.py
+
+.PHONY: test-release-safety
+test-release-safety: $(EXECUTABLE)
+	python3 $(TEST_DIR)/test_release_safety.py --self-test
+	python3 $(TEST_DIR)/test_release_safety.py

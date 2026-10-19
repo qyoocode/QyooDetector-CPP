@@ -1,0 +1,16 @@
+{
+  "source": "qyoocode/QyooDetector-iOS",
+  "source_commit": "021becc75bd35834007aeca7a2db0f6451e8692c",
+  "fixtures": [
+    {
+      "file": "single_bit_17.png",
+      "expected_payload": 262144,
+      "sha256": "d4972aeecda0cd40102e653290f94e48c7ff9d2c93a4b75eb46fd83fcc800341"
+    },
+    {
+      "file": "negative_gray.png",
+      "expected_payload": null,
+      "sha256": "8a58d2b82b35a7a797e43c238493d57cb5532f5a303d712802f087d69f4ec9f0"
+    }
+  ]
+}
