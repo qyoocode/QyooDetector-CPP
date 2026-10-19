@@ -52,8 +52,8 @@ This gate deliberately fails on the inspected public baseline: the included
 64×64 C-generated maximum-ID symbol is accepted as 0. Rejection is acceptable;
 a confidently wrong ID is not. The CI workflow enforces this gate after its
 unit/API and sanitizer steps. Passing `test-public` is insufficient for release
-while this gate fails. The audit does not change the qualified detector to
-make the fixture pass. See `tests/fixtures/release-safety/manifest.json` for
+while this gate fails. The review branch corrects the false-zero failure conservatively; the
+retained baseline failure and original fixture expectations remain evidence. See `tests/fixtures/release-safety/manifest.json` for
 reproduction provenance.
 
 The safety harness accepts rejection only when the CLI exits 0, reports
@@ -61,3 +61,32 @@ The safety harness accepts rejection only when the CLI exits 0, reports
 processing error, even with the text `No Qyoo found in the image.`: the CLI
 uses that message for core failures, including allocation failure. The
 `--self-test` reproduces this status/message case without exhausting memory.
+
+
+## Compact canonical decode gate
+
+```sh
+make test-canonical-safety
+```
+
+This self-contained target is included in `test-public`, which the public
+workflow runs. It executes six portable runner contract tests and16 tracked
+[known-answer fixtures](tests/fixtures/canonical-safety/manifest.json). No image
+rendering dependency or external corpus is needed. Predictable ignored output
+is retained under `.codex-work/canonical-safety`.
+
+The runner always fails accepted-wrong payloads and processing errors. Optional
+manifest `require_decode=true` also fails rejected positives while keeping the
+rejection category separate; omitted/false retains correct-or-reject behavior.
+Fifteen fixtures require decoding:0/1/2 at512/256/128/64 and max at512/256/128.
+Max64 remains correct-or-reject. The fresh local target produced15 correct,
+1 permitted rejection,0 wrong/errors and0 required-decode rejections; hosted
+CI has not been run. Native source remains unchanged from60aa253.
+
+The broader canonical continuation added54 conditions and reused52 verified
+unchanged outcomes. Correct/total: native51252/58, reduced25614/16,
+reduced12816/16, reduced648/16; wrong/errors0 throughout. Different vector
+coverage prevents aggregate size comparisons. Historical C-zero boundary leakage
+and canonical sparse row/column search-boundary rejects remain recall holds;
+see [AUDIT.md](AUDIT.md). Passing this compact gate does not establish full
+canonical recall or physical-camera performance.

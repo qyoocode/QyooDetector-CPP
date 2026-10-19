@@ -60,6 +60,52 @@ zero ID restriction was added. A unit check accepts truly uniform zero patches
 in both polarities. These results do not prove absence of wrong decodes outside
 this bounded corpus or establish real-camera reliability/performance.
 
+## Canonical continuation — 19 October 2026
+
+**Recall HOLD remains.** Native detector source is unchanged from
+`60aa253c074e69922084a66fea67a73aa2c93531`; subsequent commits add tests/docs only.
+The179-case results above were not repeated. Fifty-four new canonical conditions
+produced42 correct/12 rejects/0 wrong/0 errors. Fifty-two unchanged native512
+results were reused after source/binary/image hash verification. Combined106
+canonical cases produced90 correct/16 rejects/0 wrong/0 errors.
+
+| Canonical condition | Correct/total | Rejected | Wrong/errors |
+|---|---:|---:|---:|
+| Native512 |52/58|6|0/0|
+| Reduced256 |14/16|2|0/0|
+| Reduced128 |16/16|0|0/0|
+| Reduced64 |8/16|8|0/0|
+
+Sizes have different vector coverage; reductions use deterministic LANCZOS
+sampling of native512, not native exports at128/64. IDs0/1/2 decode at all four
+sizes. Max68719476735 decodes through128 and safely rejects at64. Numeric inputs
+supply independent known answers; fixed-center checks verify all58 native512
+payloads. Zero wrong accepted IDs remains a hard safety requirement.
+
+Targeted diagnostics separate two recall limitations. The five historical
+C-zero regressions have0 final sampled foreground but58/20/30/13/2 full-grid
+foreground pixels at64/68/96/128/256. Exact matrix/source-pixel tracing locates
+those pixels in the dark exterior near the curved carrier boundary;512 has0.
+This is fitted model/raster boundary leakage, not interior payload evidence.
+For canonical top-row67645734912 and left-column34905131040 at512, the aggregate
+fit instead selects all-zero at the search boundary (loss919 versus932 for the
+correct alternative). The correct payload has stronger carrier structure
+(162 mismatches versus685). Boundary rejection occurs before final sampling or
+the empty guard;128 controls select correct interior fits. Their256/64 rejection
+gates were not separately diagnosed. Neither result authorizes weakening guards.
+The next engineering scope is bounded model alignment and template objective/
+selection investigation using frozen known answers, followed by measured
+regression checks; physical-camera qualification remains separate.
+
+`make test-canonical-safety` is now a `test-public` prerequisite and therefore
+included in the existing public CI entrypoint. Its16 tracked fixtures require
+correct decoding for0/1/2 at all sizes and max512/256/128; max64 permits only
+correct decoding or rejection. Optional `require_decode` preserves legacy
+manifest behavior when omitted/false. Six harness contract tests passed after
+an expected test-first failure; the new Make entrypoint passed15 correct/1
+permitted rejection/0 wrong/0 errors/0 required-decode rejections. No rebuild
+was needed. Hosted CI remains NOT RUN; local wiring is not a hosted result.
+
 ## iOS source impact
 
 The release-associated app dependency is SDK `a1c3c6d203b503765243428f4fad163babcb79d9`.
