@@ -55,3 +55,9 @@ unit/API and sanitizer steps. Passing `test-public` is insufficient for release
 while this gate fails. The audit does not change the qualified detector to
 make the fixture pass. See `tests/fixtures/release-safety/manifest.json` for
 reproduction provenance.
+
+The safety harness accepts rejection only when the CLI exits 0, reports
+`image_loaded: true` diagnostics and emits no accepted payload. Exit 1 is a
+processing error, even with the text `No Qyoo found in the image.`: the CLI
+uses that message for core failures, including allocation failure. The
+`--self-test` reproduces this status/message case without exhausting memory.

@@ -81,7 +81,7 @@ prepared but was not run.
 | `python3 ../QyooDetector-iOS/scripts/verify_sources.py --cpp .` | PASS: public header, 20 native files (documented Apple diagnostic scopes excepted) and 301 CML files match this documented core commit; 8 Apple fixture hashes/ranges also verified. |
 | `make all test-public` | PASS: static/shared libraries, CLI, C header/API, projective transforms and multiscale policy. After adding smoke fixtures, `make test-public` passed again including 1 accepted-correct positive and 1 correct blank rejection; 0 accepted-wrong. Existing unused-variable compiler warnings remain. |
 | `make test-aspect test-scale-gate test-contrast test-background-average test-projective-estimate test-projective-sampling test-carrier-ambiguity` | PASS: all seven unit targets. |
-| `python3 tests/test_release_safety.py --self-test` | PASS: ordinary 0/1 rejection distinguished from load errors, processing errors, and accepted results. |
+| `python3 tests/test_release_safety.py --self-test` | PASS: safe rejection requires exit 0, loaded-image diagnostics and no accepted values. Exit 1 always fails, including the exact CLI failed-allocation exit/message. New allocation-failure reproduction failed before the harness correction and passed after it. |
 | `make test-release-safety` | FAIL: expected 68,719,476,735; accepted 0. 0 accepted-correct, 1 accepted-wrong, 0 rejections. Expected failing gate is deliberately separate from passing smoke/unit checks. |
 | `bin/qyoo_detector tests/fixtures/public-smoke/single_bit_17.png` (through smoke harness) | PASS: 262144. |
 | `bin/qyoo_detector ../QyooGenerate-C/.codex-work/tests/boundary.png` | FAIL compatibility: accepted 0 instead of 68,719,476,735. Identical bytes are retained in the release-safety fixture. |

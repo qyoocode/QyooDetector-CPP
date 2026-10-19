@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 def safe_rejection(run, values):
-    if values:
+    if run.returncode != 0 or values:
         return False
     diagnostics = [json.loads(line.split(" = ", 1)[1])
                    for line in run.stdout.splitlines()
@@ -16,10 +16,7 @@ def safe_rejection(run, values):
     if any(record.get("image_loaded") is False or record.get("failure_stage")
            for record in diagnostics):
         return False
-    if run.returncode == 0:
-        return any(record.get("image_loaded") is True for record in diagnostics)
-    return (run.returncode == 1 and
-            run.stderr.strip() == "No Qyoo found in the image.")
+    return any(record.get("image_loaded") is True for record in diagnostics)
 
 
 if "--self-test" in sys.argv:
@@ -27,7 +24,12 @@ if "--self-test" in sys.argv:
         stdout = "Diagnostics JSON = " + json.dumps(diagnostic) if diagnostic is not None else ""
         return subprocess.CompletedProcess([], code, stdout, stderr)
     assert safe_rejection(result(0, diagnostic={"image_loaded": True}), [])
-    assert safe_rejection(result(1, "No Qyoo found in the image."), [])
+    # main.cpp emits this exact exit/message for DetectorCoreProcessingFailure,
+    # including the failed-allocation branch in DetectorCore.cpp.
+    allocation_failure = result(1, "No Qyoo found in the image.")
+    assert not safe_rejection(allocation_failure, []), "allocation failure accepted as safe rejection"
+    assert not safe_rejection(result(1, "No Qyoo found in the image.", {"image_loaded": True}), [])
+    assert not safe_rejection(result(0), [])
     assert not safe_rejection(result(1, "No Qyoo found in the image.", {"image_loaded": False}), [])
     assert not safe_rejection(result(1, "Unable to load image"), [])
     assert not safe_rejection(result(2, "No Qyoo found in the image."), [])
