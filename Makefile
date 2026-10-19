@@ -248,7 +248,7 @@ clean:
 
 # Self-contained checks: no external recovery corpus is required.
 .PHONY: test-public
-test-public: test-public-header test-public-api test-projective-transform test-multiscale-localization test-public-smoke
+test-public: test-public-header test-public-api test-projective-transform test-multiscale-localization test-public-smoke test-empty-payload
 
 .PHONY: test-public-smoke
 test-public-smoke: $(EXECUTABLE)
@@ -258,3 +258,10 @@ test-public-smoke: $(EXECUTABLE)
 test-release-safety: $(EXECUTABLE)
 	python3 $(TEST_DIR)/test_release_safety.py --self-test
 	python3 $(TEST_DIR)/test_release_safety.py
+
+.PHONY: test-empty-payload
+test-empty-payload: $(TEST_BIN_DIR)/test_empty_payload
+	./$(TEST_BIN_DIR)/test_empty_payload
+
+$(TEST_BIN_DIR)/test_empty_payload: $(TEST_DIR)/test_empty_payload.cpp $(STATIC_LIBRARY) | $(TEST_BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(STATIC_LIBRARY) -o $@ $(LDFLAGS)

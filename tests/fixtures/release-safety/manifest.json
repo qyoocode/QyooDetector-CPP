@@ -14,6 +14,22 @@
       "sha256": "22939d463bded4b288fdc95d1dc67243593ea83522f12999f7bde431f4860f19",
       "expected_payload": 68719476735,
       "acceptable_result": "exact payload or rejection; an accepted different payload is a release blocker"
+    },
+    {
+      "file": "c-one128.png",
+      "sha256": "b255ef7ac5363f5f3961633b46d00ef1ddbb4c1ec7ff8b05493ddacc56ac7aa9",
+      "expected_payload": 1,
+      "generation_command": "bin/qyoo -id 1 -w 128 -h 128 -o c-one128.png",
+      "acceptable_result": "exact payload or rejection; accepted different ID is a release blocker",
+      "source_note": "same historical generator geometry; shape/payload generation source unchanged by subsequent input-dimension safety fix"
+    },
+    {
+      "file": "c-one96.png",
+      "sha256": "6027faeaf3fdf033d4cc8fceee6804214c0c1e3428c720fd1251fb11bf2c441b",
+      "expected_payload": 1,
+      "generation_command": "bin/qyoo -id 1 -w 96 -h 96 -o c-one96.png",
+      "acceptable_result": "exact payload or rejection; accepted different ID is a release blocker",
+      "source_note": "higher-resolution template sees sparse foreground discarded by final nearest-neighbor normalization"
     }
   ]
 }

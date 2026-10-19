@@ -4,13 +4,13 @@ This repository provides a classical Qyoo detector as a reusable reference libra
 also provides the historical command-line interface as a library consumer. The
 portable boundary is a small C ABI; the detector implementation remains C++.
 
-This public snapshot preserves a qualified historical detector baseline. It is
-not a guarantee of parity with the current Qyoo 4.0 app detector. See
-[AUDIT.md](AUDIT.md) for validation limits and remaining publication gates.
-**Release blocker:** `make test-release-safety` currently fails: a 64×64
-C-generated symbol intended as 68,719,476,735 is accepted as 0. Conservative
-rejection is required when an exact decode cannot be established. The audit
-preserves decoder behavior and includes the failing fixture for a focused fix.
+This review branch contains a conservative empty-payload safety correction.
+The retained 64×64 maximum-ID fixture now rejects rather than returning zero.
+Qualification covers 179 explicit known-answer cases: 136 correct decodes,
+42 positive rejections, one correct negative and no accepted-wrong IDs or
+processing errors. This is a bounded regression result, not a camera accuracy
+claim. Five small historical C zero symbols now reject. See [AUDIT.md](AUDIT.md)
+for the root cause, source impact and remaining publication gates.
 
 The library decodes the 36-bit visual payload; URL routing, resolution,
 Manifest experiences, and ID allocation belong to other components.
