@@ -26,7 +26,12 @@ Run from the repository root with a dedicated existing scratch location:
 python3 tests/test_generated_safety.py --manifest tests/fixtures/canonical-safety/manifest.json --work-dir .codex-work/canonical-safety --report .codex-work/canonical-safety/report.json
 ```
 
-The runner fails wrong accepted payloads and processing errors; rejections are
-reported separately and permitted by this safety test. It is not a recall gate
-or camera qualification. The qualification audit also retains52 pre-existing
+The runner fails wrong accepted payloads and processing errors. Manifest
+`require_decode=true` additionally fails a rejected positive while retaining
+its rejection classification. All0/1/2 sizes and max512/256/128 require correct
+decoding; max64 is correct-or-reject. Omitted/false keeps the existing manifest
+behavior. `make test-canonical-safety` runs the runner contract tests and these16
+fixtures in ignored `.codex-work/canonical-safety`; `make test-public` includes
+that target, so the public CI entrypoint enforces this compact recall contract.
+This is not universal recall or camera qualification. The qualification audit also retains52 pre-existing
 Web vectors and54 new conditions; these fixtures intentionally remain small.

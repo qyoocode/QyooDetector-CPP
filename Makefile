@@ -248,7 +248,7 @@ clean:
 
 # Self-contained checks: no external recovery corpus is required.
 .PHONY: test-public
-test-public: test-public-header test-public-api test-projective-transform test-multiscale-localization test-public-smoke test-empty-payload
+test-public: test-public-header test-public-api test-projective-transform test-multiscale-localization test-public-smoke test-empty-payload test-canonical-safety
 
 .PHONY: test-public-smoke
 test-public-smoke: $(EXECUTABLE)
@@ -265,3 +265,9 @@ test-empty-payload: $(TEST_BIN_DIR)/test_empty_payload
 
 $(TEST_BIN_DIR)/test_empty_payload: $(TEST_DIR)/test_empty_payload.cpp $(STATIC_LIBRARY) | $(TEST_BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< $(STATIC_LIBRARY) -o $@ $(LDFLAGS)
+
+.PHONY: test-canonical-safety
+# Reuse a predictable ignored directory; never require an external corpus.
+test-canonical-safety: $(EXECUTABLE)
+	python3 $(TEST_DIR)/test_generated_safety_contract.py
+	python3 $(TEST_DIR)/test_generated_safety.py --manifest $(TEST_DIR)/fixtures/canonical-safety/manifest.json --work-dir .codex-work/canonical-safety --report .codex-work/canonical-safety/report.json

@@ -6,112 +6,128 @@
       "expected_payload": 0,
       "sha256": "d5a0893da62b634f1bef9c0ccdd9ab9e9898ea80bd0bbeb2be13536c7d1b9259",
       "group": "canonical-512",
-      "recorded_outcome": "accepted_correct"
+      "recorded_outcome": "accepted_correct",
+      "require_decode": true
     },
     {
       "file": "0-256.png",
       "expected_payload": 0,
       "sha256": "2754bfdaaac3fbe4dadcb4941944bb895629ce79f87efb6bef10fe029aa65759",
       "group": "canonical-256",
-      "recorded_outcome": "accepted_correct"
+      "recorded_outcome": "accepted_correct",
+      "require_decode": true
     },
     {
       "file": "0-128.png",
       "expected_payload": 0,
       "sha256": "bc5340920a5d89aa558cbbbedd116117c02e3ca6efb1b02a2b1a3c910eed3b60",
       "group": "canonical-128",
-      "recorded_outcome": "accepted_correct"
+      "recorded_outcome": "accepted_correct",
+      "require_decode": true
     },
     {
       "file": "0-64.png",
       "expected_payload": 0,
       "sha256": "884e7775f20f01eb8aed83b4cf06bc30ca5b5330fbffa2b30cedc37154b7e12b",
       "group": "canonical-64",
-      "recorded_outcome": "accepted_correct"
+      "recorded_outcome": "accepted_correct",
+      "require_decode": true
     },
     {
       "file": "1-512.png",
       "expected_payload": 1,
       "sha256": "bc226d892f187be0d5e0e78ce3e52e65e6c0b0b8f31ff16ae1e907bbf5e89170",
       "group": "canonical-512",
-      "recorded_outcome": "accepted_correct"
+      "recorded_outcome": "accepted_correct",
+      "require_decode": true
     },
     {
       "file": "1-256.png",
       "expected_payload": 1,
       "sha256": "cd2cc425ee360660b1057ad2fdb26913349b2efddfbff7e0c5aaf7b1f928f54b",
       "group": "canonical-256",
-      "recorded_outcome": "accepted_correct"
+      "recorded_outcome": "accepted_correct",
+      "require_decode": true
     },
     {
       "file": "1-128.png",
       "expected_payload": 1,
       "sha256": "3b4f148406902748ef9a6feabd3d4fc865b24706d0d79b6843640a71a319a56b",
       "group": "canonical-128",
-      "recorded_outcome": "accepted_correct"
+      "recorded_outcome": "accepted_correct",
+      "require_decode": true
     },
     {
       "file": "1-64.png",
       "expected_payload": 1,
       "sha256": "c66e84e011a5d2d14b5cc9db3ef43d73a672d619fad8905faac69cb329fcff4e",
       "group": "canonical-64",
-      "recorded_outcome": "accepted_correct"
+      "recorded_outcome": "accepted_correct",
+      "require_decode": true
     },
     {
       "file": "2-512.png",
       "expected_payload": 2,
       "sha256": "4e3528a148ec4f12e1e51ac9ef1522e2e835727884b2edf32f21c90a873673f8",
       "group": "canonical-512",
-      "recorded_outcome": "accepted_correct"
+      "recorded_outcome": "accepted_correct",
+      "require_decode": true
     },
     {
       "file": "2-256.png",
       "expected_payload": 2,
       "sha256": "fdf048afd518f9e64f2d207bd200e19a7c0f94d9e0071ab38686c88841c11f1a",
       "group": "canonical-256",
-      "recorded_outcome": "accepted_correct"
+      "recorded_outcome": "accepted_correct",
+      "require_decode": true
     },
     {
       "file": "2-128.png",
       "expected_payload": 2,
       "sha256": "fcb5dbb70a2461d072ae1df61782ac644bbb0880f7c8806be72f344f66b870c3",
       "group": "canonical-128",
-      "recorded_outcome": "accepted_correct"
+      "recorded_outcome": "accepted_correct",
+      "require_decode": true
     },
     {
       "file": "2-64.png",
       "expected_payload": 2,
       "sha256": "8f22b395b9aa93088e5ada83278163916c0e192b788ed2eecf888277193019c3",
       "group": "canonical-64",
-      "recorded_outcome": "accepted_correct"
+      "recorded_outcome": "accepted_correct",
+      "require_decode": true
     },
     {
       "file": "68719476735-512.png",
       "expected_payload": 68719476735,
       "sha256": "840e770db401669b294b6c5f6726404a9d6ec4e34a028e69563980b18b603f3b",
       "group": "canonical-512",
-      "recorded_outcome": "accepted_correct"
+      "recorded_outcome": "accepted_correct",
+      "require_decode": true
     },
     {
       "file": "68719476735-256.png",
       "expected_payload": 68719476735,
       "sha256": "14f4fcac4922da7577b9dcb549a75d08eb6f0445051decc5e7004329d201fee1",
       "group": "canonical-256",
-      "recorded_outcome": "accepted_correct"
+      "recorded_outcome": "accepted_correct",
+      "require_decode": true
     },
     {
       "file": "68719476735-128.png",
       "expected_payload": 68719476735,
       "sha256": "1179b3e1bcb603d83a496909c174dc42e4c78744bca65d370a1a24f8cbb579d8",
       "group": "canonical-128",
-      "recorded_outcome": "accepted_correct"
+      "recorded_outcome": "accepted_correct",
+      "require_decode": true
     },
     {
       "file": "68719476735-64.png",
       "expected_payload": 68719476735,
       "sha256": "d2b35d0543f63298bd1f721dcd13a6e84a99338fd67089f26f1b7554be9a40ca",
       "group": "canonical-64",
-      "recorded_outcome": "rejected"
+      "recorded_outcome": "rejected",
+      "require_decode": false
     }
   ]
 }

@@ -2,9 +2,10 @@
 """Qualify explicit known-answer images; no image-generation dependency required.
 
 Manifest: {"fixtures": [{"file": "relative.png", "expected_payload": 1,
-"sha256": "...", "group": "optional provenance group"}]}. Null payloads
+"sha256": "...", "group": "optional provenance group", "require_decode": true}]}. Null payloads
 are negative controls. Rejections are permitted; wrong acceptances and processing
-errors fail. Use a dedicated work directory for the CLI's output images.
+errors fail. Positive fixtures with require_decode=true must also decode
+correctly; omitted/false permits rejection. Use a dedicated work directory for the CLI's output images.
 """
 import argparse
 from collections import Counter
@@ -39,6 +40,7 @@ def main():
     report = {"manifest": str(manifest), "detector": str(detector),
               "detector_sha256": hashlib.sha256(detector.read_bytes()).hexdigest(),
               "counts": {}, "groups": {}, "cases": [], "complete": False,
+              "required_decode_rejections": 0,
               "timing_note": "Sequential local CLI wall time; includes process startup and image output."}
     started = time.perf_counter()
     for fixture in json.loads(manifest.read_text())["fixtures"]:
@@ -69,6 +71,8 @@ def main():
             record["error"] = f"{type(error).__name__}: {error}"
         record.update(outcome=outcome, wall_seconds=time.perf_counter() - case_started)
         report["cases"].append(record)
+        if fixture.get("require_decode", False) and outcome == "rejected":
+            report["required_decode_rejections"] += 1
         report["counts"] = counts(report["cases"])
         report["groups"] = {group: counts(c for c in report["cases"] if c.get("group", "unspecified") == group) for group in sorted({c.get("group", "unspecified") for c in report["cases"]})}
         report["elapsed_seconds"] = time.perf_counter() - started
@@ -77,7 +81,8 @@ def main():
     report["complete"] = True
     args.report.write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report["counts"], sort_keys=True))
-    return int(bool(report["counts"].get("accepted_wrong") or report["counts"].get("processing_error")))
+    return int(bool(report["counts"].get("accepted_wrong") or report["counts"].get("processing_error") or
+                          report["required_decode_rejections"]))
 
 
 if __name__ == "__main__":
