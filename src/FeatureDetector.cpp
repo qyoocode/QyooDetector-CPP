@@ -206,6 +206,7 @@ struct CarrierTemplateFit
           bestLoss(std::numeric_limits<int>::max()),
           alternativeLoss(std::numeric_limits<int>::max()),
           structuralMismatchPixels(0), structuralSupportPixels(0),
+          gridForegroundPixels(0),
           structuralBestMismatchPixels(std::numeric_limits<int>::max()),
           structuralBestAmount(0.0), distinctPayloads(0) { }
     bool valid;
@@ -217,6 +218,7 @@ struct CarrierTemplateFit
     std::string alternativePayload;
     int structuralMismatchPixels;
     int structuralSupportPixels;
+    int gridForegroundPixels;
     int structuralBestMismatchPixels;
     double structuralBestAmount;
     std::string structuralBestPayload;
@@ -228,9 +230,11 @@ struct CarrierTemplateFit
 struct CarrierTemplateEvidence
 {
     CarrierTemplateEvidence()
-        : structuralMismatchPixels(0), structuralSupportPixels(0) { }
+        : structuralMismatchPixels(0), structuralSupportPixels(0),
+          gridForegroundPixels(0) { }
     int structuralMismatchPixels;
     int structuralSupportPixels;
+    int gridForegroundPixels;
 };
 
 static bool oppositePixel(int value, int background)
@@ -269,6 +273,8 @@ static int carrierTemplateLoss(RawImageGray8 *patch, std::string &payload,
     QyooModel *model = QyooModel::getQyooModel();
     SimplePoint2D lower, upper;
     model->dotBounds(lower, upper, true);
+    SimplePoint2D gridLower, gridUpper;
+    model->dotBounds(gridLower, gridUpper, false);
     double spanX = upper.x - lower.x;
     double spanY = upper.y - lower.y;
     int loss = 0;
@@ -277,6 +283,12 @@ static int carrierTemplateLoss(RawImageGray8 *patch, std::string &payload,
         {
             double modelX = lower.x + spanX * x / width;
             double modelY = lower.y + spanY * y / height;
+            // The full grid envelope preserves weak/off-center evidence that
+            // final lower-resolution sample disks can omit entirely.
+            if (evidence && modelX >= gridLower.x && modelX <= gridUpper.x &&
+                modelY >= gridLower.y && modelY <= gridUpper.y &&
+                observed[y * width + x])
+                evidence->gridForegroundPixels++;
             bool insideCircle = (modelX - 0.5) * (modelX - 0.5) +
                                 (modelY - 0.5) * (modelY - 0.5) <= 0.25;
             bool insideSquare = modelX <= 0.5 && modelY <= 0.5;
@@ -378,6 +390,7 @@ static CarrierTemplateFit fitCarrierTemplate(gdImagePtr input,
             result.normalizedToImage = normalizedToImage;
             result.structuralMismatchPixels = evidence.structuralMismatchPixels;
             result.structuralSupportPixels = evidence.structuralSupportPixels;
+            result.gridForegroundPixels = evidence.gridForegroundPixels;
             bestIndex = index;
         }
     }
@@ -433,6 +446,9 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
 	carrierTemplateAmbiguous = false;
 	carrierTemplateBoundaryRejected = false;
 	carrierTemplateSamplerDisagreed = false;
+	carrierTemplateEmptyPayloadRejected = false;
+	carrierTemplateSampledForegroundPixels = 0;
+	carrierTemplateGridForegroundPixels = 0;
 	carrierTemplateAmbiguityAmount = 0.0;
 	carrierTemplateBestLoss = -1;
 	carrierTemplateAlternativeLoss = -1;
@@ -552,6 +568,7 @@ void FeatureDotsProcessor::init(gdImagePtr inImage, FeatureProcessor *inFeatProc
             carrierTemplateStructuralBestPayload = fit.structuralBestPayload;
             carrierTemplateDistinctPayloads = fit.distinctPayloads;
             carrierTemplatePayload = fit.payload;
+            carrierTemplateGridForegroundPixels = fit.gridForegroundPixels;
             carrierTemplateAmbiguous = fit.ambiguous;
             carrierTemplateBoundaryRejected = fit.boundary;
             if (!fit.valid)
@@ -842,6 +859,8 @@ void FeatureDotsProcessor::findDotsGray() {
     feat->dotBinStr.clear();
     feat->dotDecStr.clear();
     qyooBits = "";  // Start fresh with qyooBits
+    carrierTemplateSampledForegroundPixels = 0;
+    carrierTemplateEmptyPayloadRejected = false;
 
     gdImagePtr outImg = nullptr;
     int colorRed = 0;
@@ -875,6 +894,7 @@ void FeatureDotsProcessor::findDotsGray() {
                                   radFilter, avgPixel, &measurement);
             sampleValidCount[row][pos] = measurement.validCount;
             sampleMatchCount[row][pos] = measurement.matchCount;
+            carrierTemplateSampledForegroundPixels += measurement.matchCount;
             sampleCenterGray[row][pos] = measurement.centerGray;
             sampleMatchRatio[row][pos] = measurement.ratio;
             sampleMeanGray[row][pos] = measurement.meanGray;
@@ -929,6 +949,26 @@ void FeatureDotsProcessor::findDotsGray() {
         carrierTemplateSamplerDisagreed = true;
         logVerbose(featProc ? featProc->logger : nullptr,
                    "Carrier-template fitted payload and deterministic sampler disagree; payload rejected.");
+        qyooBits.clear();
+        feat->dotBits.clear();
+        if (outImg)
+            gdImageDestroy(outImg);
+        delete radFilter;
+        return;
+    }
+    // Individually subthreshold dots can make the template and sampler agree
+    // on a false empty grid. Any foreground under the existing radiance test
+    // contradicts an affirmative empty payload, even if its aggregate support
+    // is smaller than one full dot. Preserve higher-resolution template evidence
+    // when final nearest-neighbor resampling omits it. Reject; never alter bits.
+    if (normalization == NormalizationCarrierTemplate &&
+        qyooBits == std::string(QYOOSIZE * QYOOSIZE, '0') &&
+        (carrierTemplateSampledForegroundPixels > 0 ||
+         carrierTemplateGridForegroundPixels > 0))
+    {
+        carrierTemplateEmptyPayloadRejected = true;
+        logVerbose(featProc ? featProc->logger : nullptr,
+                   "Empty payload contains contradictory foreground evidence; payload rejected.");
         qyooBits.clear();
         feat->dotBits.clear();
         if (outImg)
@@ -1266,6 +1306,8 @@ static const char *normalizationOutcomeCode(
             return "carrier_template_ambiguous_rejected";
         if (carrierTemplateDots->carrierTemplateSamplerDisagreed)
             return "carrier_template_sampler_disagreement_rejected";
+        if (carrierTemplateDots->carrierTemplateEmptyPayloadRejected)
+            return "carrier_template_empty_payload_rejected";
     }
     if (feature.projectivePayloadExtracted)
     {
@@ -1573,7 +1615,13 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
             output << ",\"search_boundary_rejected\":"
                    << jsonBoolean(carrierTemplateDots->carrierTemplateBoundaryRejected);
             output << ",\"sampler_disagreement_rejected\":"
-                   << jsonBoolean(carrierTemplateDots->carrierTemplateSamplerDisagreed) << '}';
+                   << jsonBoolean(carrierTemplateDots->carrierTemplateSamplerDisagreed);
+            output << ",\"empty_payload_rejected\":"
+                   << jsonBoolean(carrierTemplateDots->carrierTemplateEmptyPayloadRejected);
+            output << ",\"sampled_foreground_pixels\":"
+                   << carrierTemplateDots->carrierTemplateSampledForegroundPixels;
+            output << ",\"grid_foreground_pixels\":"
+                   << carrierTemplateDots->carrierTemplateGridForegroundPixels << '}';
         }
         if (includeVisualGeometry)
         {
@@ -1732,7 +1780,13 @@ std::string FeatureProcessor::diagnosticsJson(const std::string &imageId,
                 output << ",\"search_boundary_rejected\":"
                        << jsonBoolean(dots->carrierTemplateBoundaryRejected);
                 output << ",\"sampler_disagreement_rejected\":"
-                       << jsonBoolean(dots->carrierTemplateSamplerDisagreed) << '}';
+                       << jsonBoolean(dots->carrierTemplateSamplerDisagreed);
+                output << ",\"empty_payload_rejected\":"
+                       << jsonBoolean(dots->carrierTemplateEmptyPayloadRejected);
+                output << ",\"sampled_foreground_pixels\":"
+                       << dots->carrierTemplateSampledForegroundPixels;
+                output << ",\"grid_foreground_pixels\":"
+                       << dots->carrierTemplateGridForegroundPixels << '}';
                 output << ",\"patch_size\":{\"width\":" << dots->grayImg->getSizeX()
                        << ",\"height\":" << dots->grayImg->getSizeY() << '}';
                 output << ",\"background_sample\":{\"center\":[" << PixelsPerDot / 2

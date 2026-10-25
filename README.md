@@ -1,8 +1,21 @@
 # Qyoo Detector Core
 
-This repository builds the production Qyoo detector as a reusable library and
+Qyoo is maintained by **Pushplay LLC**.
+
+This repository provides a classical Qyoo detector as a reusable reference library and
 also provides the historical command-line interface as a library consumer. The
 portable boundary is a small C ABI; the detector implementation remains C++.
+
+This review branch contains a conservative empty-payload safety correction.
+The retained 64×64 maximum-ID fixture now rejects rather than returning zero.
+Qualification covers 179 explicit known-answer cases: 136 correct decodes,
+42 positive rejections, one correct negative and no accepted-wrong IDs or
+processing errors. This is a bounded regression result, not a camera accuracy
+claim. Five small historical C zero symbols now reject. See [AUDIT.md](AUDIT.md)
+for the root cause, source impact and qualification limits.
+
+The library decodes the 36-bit visual payload; URL routing, resolution,
+Manifest experiences, and ID allocation belong to other components.
 
 ## Overview
 
@@ -18,7 +31,7 @@ dependency and no GD type appears in the public header.
 - `bin/qyoo_detector` — PNG/JPEG command-line adapter
 
 The shared library exports only the `qyoo_*` C symbols. Internal detector
-classes and historical recovery controls are not part of the production ABI.
+classes and historical diagnostic controls are not part of the public ABI.
 
 ## Installation and Setup
 
@@ -106,9 +119,12 @@ For a direct API check, including malformed inputs, padded strides, repeated
 calls, multiple contexts, result cleanup, and a known payload, run:
 
 ```bash
-make test-public-header test-public-api
+make test-public
 make test-sanitizers
 ```
+
+The API fixture test asserts a historical decoded value; it is a regression
+check, not independent confirmation of the photographed symbol's intended ID.
 
 Link C or C++ clients with `-Iinclude -Llib -lqyoo_detector`. Static-library
 consumers should use the C++ linker and include GD's link flags, for example
@@ -122,14 +138,10 @@ Pass a PNG or JPEG image to the detector:
 bin/qyoo_detector path/to/qyoo.png
 ```
 
-When a Qyoo is accepted, the command prints its raw 36-bit carrier and unsigned value:
-
-```
-Binary = 101010010011101010011001110110010101
-Qyoo value = 45427039637
-```
-
-It also saves a diagnostic PNG under `output/`, with the accepted value as its filename. The image marks detected dots with green circles and clear cells with red Xs.
+When a Qyoo is accepted, the command prints its 36-bit binary payload and its
+unsigned decimal value in the range 0 through 68,719,476,735. Binary positions
+follow the oriented 6×6 grid in row-major order, most significant bit first.
+The CLI also saves a diagnostic PNG under `output/`.
 
 The default normalization fits the payload-independent carrier geometry from
 the curved boundary and two straight tangents, then resolves the carrier's
@@ -154,13 +166,16 @@ accepted as confirmation.
 
 ### Bundled Sample Status
 
-`input/45427039637.png` is retained as a known failing renderer-compatibility sample, not as a successful installation demo. Its 6x6 cells do encode `45427039637`, but the current legacy detector traces 26 features and accepts no Qyoo shape. Disposable builds of every relevant buildable detector state from `4e65f18` through `5520ced` also reject this exact file. The README command naming the file was written in October 2024; the file itself was added in April 2025, so the former “should output” claim was never supported by repository history.
+`input/45427039637.png` is a retained renderer-compatibility rejection fixture,
+not a successful installation demonstration. Earlier documentation's expected
+successful scan was unsupported by repository history.
 
-The five JPEG camera photos under `input/qyoo-samples/` load successfully. With
-the current full-frame detector, `IMG_5171` and `IMG_5172` extract carrier data;
-`IMG_5170` is conservatively rejected because template fitting and final
-sampling disagree; `IMG_5169` and `IMG_5173` fail before normalization. Their
-historical payloads remain unverified, so none is a known-answer green example.
+The five JPEG camera photos under `input/qyoo-samples/` are historical examples.
+Their intended IDs have not been independently verified. The public API test
+asserts the detector's historical output `511305600` for `IMG_5172.jpg`; this
+checks repeatability, rather than establishing ground truth or camera accuracy.
+Do not use these photos to claim a detection success rate or infer a license
+for unrelated photographs.
 
 ### Verbose Mode
 
@@ -172,12 +187,23 @@ bin/qyoo_detector path/to/qyoo.jpg --verbose
 
 Verbose mode reports image dimensions, traced features, corner/model decisions, and the final accepted-shape count. A rejected input still exits normally after printing `No Qyoo found in the image.`
 
-Focused correctness checks are available as Make targets: `test-aspect`,
-`test-contrast`, `test-background-average`, `test-resource-stress`,
-`test-image-input`, `test-multiscale-localization`,
-`test-carrier-template-cli`, and `test-task09b-wrong-decodes`. The recovery
-workspace's frozen detector scoreboard remains the behavioral regression
-authority.
+A reproducible positive smoke check and a blank rejection control are included:
+
+```sh
+make test-public-smoke
+bin/qyoo_detector tests/fixtures/public-smoke/single_bit_17.png
+# Binary = 000000000000000001000000000000000000
+# Qyoo value = 262144
+```
+
+This synthetic single-bit example passed on the inspected public detector;
+it is not a real-camera accuracy claim. Fixture provenance and hashes are in
+[`tests/fixtures/public-smoke`](tests/fixtures/public-smoke).
+
+`make test-public` runs the self-contained header, API, projective-transform,
+multiscale-policy and known-answer CLI checks. [TESTING.md](TESTING.md) distinguishes these from
+research targets that require external corpora. A complete camera benchmark
+must count accepted-wrong IDs separately from rejection.
 
 ### Decision-Neutral Visual Debug Export
 
@@ -189,7 +215,9 @@ bin/qyoo_detector path/to/qyoo.jpg --visual-debug-dir /path/to/artifacts
 
 The option implies structured diagnostics and writes the exact 88×88 grayscale patch used for payload sampling, plus an affine pilot when one exists. Its JSON record includes candidate contours, orientation geometry, projective correspondences and transforms, normalization outcome, and all 36 actual sample decisions. Export happens after detector decisions and does not change detection or decoding behavior.
 
-The human renderer, one-image command, corpus command, and static report are documented at `../recovery/detector-visuals/README.md`. Run `make test-visual-diagnostics` for the focused decision-neutrality check; its disposable output is retained under the workspace recovery trash policy.
+The external human report renderer and camera corpora are not distributed in
+this checkout. The CLI export works independently; research validation targets
+requiring those corpora are described in [TESTING.md](TESTING.md).
 
 ## Legacy Server-Side Usage
 
@@ -205,4 +233,5 @@ We welcome contributions to the QyooDetector project. Please open an issue or su
 
 ## License
 
-This project is licensed under the BSD-3-Clause License. See the [LICENSE](LICENSE) file for details.
+Qyoo code uses [BSD-3-Clause](LICENSE). CML and libgd retain separate licenses;
+see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -1,0 +1,19 @@
+name: Public validation
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential pkg-config libgd-dev python3
+      - name: Build and check public interface
+        run: make all test-public
+      - name: Address and undefined-behavior sanitizers
+        run: make test-sanitizers
+      - name: Block accepted-wrong payloads
+        run: make test-release-safety
