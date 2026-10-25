@@ -1,5 +1,7 @@
 # Qyoo Detector Core
 
+Qyoo is maintained by **Pushplay LLC**.
+
 This repository provides a classical Qyoo detector as a reusable reference library and
 also provides the historical command-line interface as a library consumer. The
 portable boundary is a small C ABI; the detector implementation remains C++.
@@ -10,7 +12,7 @@ Qualification covers 179 explicit known-answer cases: 136 correct decodes,
 42 positive rejections, one correct negative and no accepted-wrong IDs or
 processing errors. This is a bounded regression result, not a camera accuracy
 claim. Five small historical C zero symbols now reject. See [AUDIT.md](AUDIT.md)
-for the root cause, source impact and remaining publication gates.
+for the root cause, source impact and qualification limits.
 
 The library decodes the 36-bit visual payload; URL routing, resolution,
 Manifest experiences, and ID allocation belong to other components.
@@ -172,8 +174,8 @@ The five JPEG camera photos under `input/qyoo-samples/` are historical examples.
 Their intended IDs have not been independently verified. The public API test
 asserts the detector's historical output `511305600` for `IMG_5172.jpg`; this
 checks repeatability, rather than establishing ground truth or camera accuracy.
-Do not use these photos to claim a detection success rate. Redistributable
-photograph rights also require owner confirmation.
+Do not use these photos to claim a detection success rate or infer a license
+for unrelated photographs.
 
 ### Verbose Mode
 

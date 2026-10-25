@@ -27,11 +27,10 @@ notices; distributors must inspect their actual dependency configuration.
 
 ## Image fixtures
 
-Generated fixtures and historical photographs are distinct from dependency
-source code. Repository history does not supply a separate photographer or
-redistribution grant for the camera photos. Before a public release, the owner
-must confirm their rights to redistribute those photographs. Existing assets
-are retained pending that review.
+Generated fixtures and historical photographs are regression evidence, distinct
+from dependency source code. Historical photos are not independently labeled
+camera-accuracy ground truth. The BSD software license does not grant rights
+to unrelated third-party photographs. Existing fixture attribution is preserved.
 
 
 Security maintenance is separate from license compliance. See the audit's

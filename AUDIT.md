@@ -1,5 +1,14 @@
 # Public repository audit — 18 October 2026
 
+## Publication update — 24 October 2026
+
+Qyoo is maintained by Pushplay LLC. The owner authorized public reference
+publication under the existing BSD-3-Clause terms for Qyoo-owned code, with
+required third-party notices preserved. Historical copyright statements remain
+unchanged. Earlier app/camera/production-support gates below are retained audit
+context, not prerequisites for this reference PR. Completed tests are retained;
+this final pass changes documentation only. No application release is included.
+
 Inspected public default: `3a7002fd7cc6075d9bfb19fe537585dc277a9267`.
 Classification: **reference detector with a portable C ABI**.
 **Review branch prepared; HOLD for a newly endorsed SDK release** pending
